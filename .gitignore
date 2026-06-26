@@ -1,0 +1,19 @@
+# datos y outputs (no versionar videos ni resultados)
+data/raw/*
+data/output/*
+!data/raw/.gitkeep
+!data/output/.gitkeep
+
+# modelos descargados
+models/*.task
+!models/.gitkeep
+
+# python
+venv/
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# os
+.DS_Store
