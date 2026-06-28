@@ -8,8 +8,10 @@ from __future__ import annotations
 import os
 
 import cv2
+import numpy as np
 from flask import Flask, Response, abort, jsonify, send_from_directory
 from webtool.frames import FrameReader
+from src import pose
 
 RAW_DIR = "data/raw"
 OUTPUT_DIR = "data/output"
@@ -38,6 +40,16 @@ def video_path(video: str) -> str:
 def landmarks_npy_path(video: str) -> str:
     stem = os.path.splitext(video)[0]
     return os.path.join(OUTPUT_DIR, f"{stem}_landmarks.npy")
+
+
+def load_or_extract_landmarks(video: str) -> np.ndarray:
+    npy = landmarks_npy_path(video)
+    if os.path.isfile(npy):
+        return np.load(npy)
+    lm, _ = pose.extract_landmarks(os.path.join(RAW_DIR, video))
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    np.save(npy, lm)
+    return lm
 
 
 def read_meta(path: str) -> dict:
@@ -88,6 +100,14 @@ def create_app() -> Flask:
         meta = read_meta(path)
         meta["has_landmarks"] = os.path.isfile(landmarks_npy_path(video))
         return jsonify(meta)
+
+    @app.get("/api/landmarks/<video>")
+    def api_landmarks(video: str):
+        video_path(video)  # valida existencia / 404
+        lm = load_or_extract_landmarks(video)
+        # NaN -> None para JSON válido.
+        clean = np.where(np.isnan(lm), None, lm).tolist()
+        return jsonify(landmarks=clean, n_frames=len(clean))
 
     return app
 

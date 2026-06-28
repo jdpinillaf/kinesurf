@@ -47,3 +47,15 @@ def test_frame_out_of_range_clamps(client):
     resp = client.get("/api/frame/PopUpLateral.mov/999999")
     assert resp.status_code == 200
     assert resp.data[:2] == b"\xff\xd8"
+
+
+def test_landmarks_shape(client):
+    resp = client.get("/api/landmarks/PopUpLateral.mov")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    lm = data["landmarks"]
+    assert data["n_frames"] == len(lm)
+    assert len(lm[0]) == 33          # 33 landmarks
+    assert len(lm[0][0]) == 4        # x,y,z,vis
+    # Coords normalizadas: x del landmark 0 dentro de un margen razonable.
+    assert -0.5 < lm[0][0][0] < 1.5
