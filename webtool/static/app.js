@@ -120,6 +120,8 @@ function drawSkeleton() {
 function redrawOverlay() {
   octx.clearRect(0, 0, overlay.width, overlay.height);
   if (document.getElementById("skeletonToggle").checked) drawSkeleton();
+  drawAngles();
+  drawPenStrokes();   // definido en Task 10
 }
 
 document.getElementById("skeletonToggle")
@@ -187,5 +189,55 @@ overlay.addEventListener("mousemove", (e) => {
 });
 
 window.addEventListener("mouseup", () => { dragIdx = null; });
+
+// ── Herramienta de ángulo manual (3 clicks: A, vértice B, C) ─────────────────
+let anglePts = [];   // acumula clicks A,B,C en px
+
+function angleDeg(a, b, c) {
+  const v1 = { x: a.x - b.x, y: a.y - b.y };
+  const v2 = { x: c.x - b.x, y: c.y - b.y };
+  const dot = v1.x * v2.x + v1.y * v2.y;
+  const den = Math.hypot(v1.x, v1.y) * Math.hypot(v2.x, v2.y) + 1e-9;
+  return Math.acos(Math.max(-1, Math.min(1, dot / den))) * 180 / Math.PI;
+}
+
+function drawAngles() {
+  // Guard: annotations.angles may be absent before Task 11 normalizes it.
+  if (!state.annotations?.angles) return;
+  octx.strokeStyle = "#6f6";
+  octx.fillStyle = "#6f6";
+  octx.font = "16px sans-serif";
+  for (const a of state.annotations.angles) {
+    if (a.frame !== state.frame) continue;
+    const pts = a.points.map((p) => ({ x: p[0] * overlay.width, y: p[1] * overlay.height }));
+    octx.beginPath();
+    octx.moveTo(pts[0].x, pts[0].y);
+    octx.lineTo(pts[1].x, pts[1].y);
+    octx.lineTo(pts[2].x, pts[2].y);
+    octx.stroke();
+    octx.fillText(`${a.value.toFixed(0)}°`, pts[1].x + 8, pts[1].y - 8);
+  }
+}
+
+// Stub: Task 10 replaces this with the real pen-strokes implementation.
+function drawPenStrokes() {}
+
+overlay.addEventListener("click", (e) => {
+  if (state.tool !== "angle") return;
+  anglePts.push(evtPos(e));
+  if (anglePts.length === 3) {
+    const [a, b, c] = anglePts;
+    // Guard: angles array may not exist yet.
+    state.annotations.angles = state.annotations.angles || [];
+    state.annotations.angles.push({
+      frame: state.frame,
+      points: anglePts.map((p) => [p.x / overlay.width, p.y / overlay.height]),
+      value: angleDeg(a, b, c),
+      label: "",
+    });
+    anglePts = [];
+    redrawOverlay();
+  }
+});
 
 loadVideos();
