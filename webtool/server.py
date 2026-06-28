@@ -5,12 +5,13 @@ Arranca con: ./venv/bin/python -m webtool.server
 """
 from __future__ import annotations
 
+import json
 import math
 import os
 
 import cv2
 import numpy as np
-from flask import Flask, Response, abort, jsonify, send_from_directory
+from flask import Flask, Response, abort, jsonify, request, send_from_directory
 from webtool.frames import FrameReader
 from src import pose
 
@@ -41,6 +42,11 @@ def video_path(video: str) -> str:
 def landmarks_npy_path(video: str) -> str:
     stem = os.path.splitext(video)[0]
     return os.path.join(OUTPUT_DIR, f"{stem}_landmarks.npy")
+
+
+def annotations_path(video: str) -> str:
+    stem = os.path.splitext(video)[0]
+    return os.path.join(OUTPUT_DIR, f"{stem}_annotations.json")
 
 
 def load_or_extract_landmarks(video: str) -> np.ndarray:
@@ -110,6 +116,24 @@ def create_app() -> Flask:
         clean = [[[None if math.isnan(v) else v for v in pt] for pt in frame]
                  for frame in lm.tolist()]
         return jsonify(landmarks=clean, n_frames=len(clean))
+
+    @app.get("/api/annotations/<video>")
+    def api_get_annotations(video: str):
+        video_path(video)  # 404 si no existe el video
+        path = annotations_path(video)
+        if os.path.isfile(path):
+            with open(path) as f:
+                return jsonify(json.load(f))
+        return jsonify(video=video, corrections={}, angles=[], drawings={})
+
+    @app.post("/api/annotations/<video>")
+    def api_post_annotations(video: str):
+        video_path(video)
+        data = request.get_json(force=True)
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        with open(annotations_path(video), "w") as f:
+            json.dump(data, f, indent=2)
+        return jsonify(ok=True)
 
     return app
 

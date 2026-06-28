@@ -73,3 +73,32 @@ def test_landmarks_nan_serializes_as_null(client, monkeypatch):
     assert data["n_frames"] == 2
     assert data["landmarks"][0][0][0] is None      # the NaN became null
     assert data["landmarks"][0][0][1] == 1.0        # non-NaN preserved
+
+
+def test_annotations_roundtrip(client, tmp_path, monkeypatch):
+    import webtool.server as srv
+    monkeypatch.setattr(srv, "OUTPUT_DIR", str(tmp_path))
+
+    payload = {
+        "video": "PopUpLateral.mov",
+        "corrections": {"151": {"25": [0.41, 0.72]}},
+        "angles": [{"frame": 151, "points": [[0.4, 0.3], [0.4, 0.7], [0.39, 0.95]],
+                    "value": 129.3, "label": "rodilla"}],
+        "drawings": {"151": [{"tool": "pen", "stroke": [[0.5, 0.5]], "color": "#ff0000"}]},
+    }
+    post = client.post("/api/annotations/PopUpLateral.mov", json=payload)
+    assert post.status_code == 200
+    assert post.get_json()["ok"] is True
+
+    got = client.get("/api/annotations/PopUpLateral.mov").get_json()
+    assert got["corrections"]["151"]["25"] == [0.41, 0.72]
+    assert got["angles"][0]["value"] == 129.3
+
+
+def test_annotations_empty_default(client, tmp_path, monkeypatch):
+    import webtool.server as srv
+    monkeypatch.setattr(srv, "OUTPUT_DIR", str(tmp_path))
+    got = client.get("/api/annotations/PopUpLateral.mov").get_json()
+    assert got["corrections"] == {}
+    assert got["angles"] == []
+    assert got["drawings"] == {}
