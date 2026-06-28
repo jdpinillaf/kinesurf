@@ -5,6 +5,7 @@ y cachea los últimos frames codificados a JPEG para que la navegación ◀▶ s
 """
 from __future__ import annotations
 
+import logging
 from collections import OrderedDict
 
 import cv2
@@ -32,6 +33,7 @@ class FrameReader:
         cap = self._cap(path)
         total = self._counts[path]
         n = max(0, min(n, total - 1))
+        requested = n  # Fix 1: capture original clamped index before retry
         key = (path, n)
         if key in self._cache:
             self._cache.move_to_end(key)
@@ -47,12 +49,20 @@ class FrameReader:
             ok, frame = cap.read()
         if not ok:
             raise IndexError(f"No se pudo leer ningún frame de {path}")
+        # Fix 1: emit one warning per retried request
+        if n != requested:
+            logging.warning(
+                "Frame %d unreadable in %s, served %d instead", requested, path, n
+            )
         ok, buf = cv2.imencode(
             ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY]
         )
         data = buf.tobytes()
+        # Fix 3: removed redundant move_to_end — fresh assignment already appends to end
         self._cache[key] = data
-        self._cache.move_to_end(key)
-        if len(self._cache) > CACHE_SIZE:
+        # Fix 2: also cache the originally-requested key to avoid re-triggering retry
+        if n != requested:
+            self._cache[(path, requested)] = data
+        while len(self._cache) > CACHE_SIZE:
             self._cache.popitem(last=False)
         return data
