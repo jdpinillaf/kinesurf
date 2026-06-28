@@ -47,6 +47,9 @@ async function selectVideo(video) {
     state.landmarks = (await lr.json()).landmarks;
     state.annotations = await (await fetch(
       `/api/annotations/${encodeURIComponent(video)}`)).json();
+    state.annotations.corrections = state.annotations.corrections || {};
+    state.annotations.angles = state.annotations.angles || [];
+    state.annotations.drawings = state.annotations.drawings || {};
     // Dimensionar ambos canvas al tamaño real del frame.
     for (const c of [base, overlay]) {
       c.width = state.meta.width;
@@ -274,6 +277,18 @@ overlay.addEventListener("click", (e) => {
     anglePts = [];
     redrawOverlay();
   }
+});
+
+// ── Guardar anotaciones ───────────────────────────────────────────────────────
+document.getElementById("saveBtn").addEventListener("click", async () => {
+  state.annotations.video = state.video;
+  const r = await fetch(`/api/annotations/${encodeURIComponent(state.video)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(state.annotations),
+  });
+  els.status.textContent = (await r.json()).ok ? "guardado ✓" : "error";
+  setTimeout(() => (els.status.textContent = ""), 2000);
 });
 
 // ── Undo y clear por frame ────────────────────────────────────────────────────
