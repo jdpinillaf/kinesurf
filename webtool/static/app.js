@@ -281,13 +281,19 @@ overlay.addEventListener("click", (e) => {
 
 // ── Guardar anotaciones ───────────────────────────────────────────────────────
 document.getElementById("saveBtn").addEventListener("click", async () => {
+  if (!state.video) return;
   state.annotations.video = state.video;
-  const r = await fetch(`/api/annotations/${encodeURIComponent(state.video)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(state.annotations),
-  });
-  els.status.textContent = (await r.json()).ok ? "guardado ✓" : "error";
+  try {
+    const r = await fetch(`/api/annotations/${encodeURIComponent(state.video)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state.annotations),
+    });
+    const ok = r.ok && (await r.json()).ok;
+    els.status.textContent = ok ? "guardado ✓" : "error";
+  } catch (err) {
+    els.status.textContent = "error";
+  }
   setTimeout(() => (els.status.textContent = ""), 2000);
 });
 
