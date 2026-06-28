@@ -282,7 +282,7 @@ document.getElementById("undoBtn").addEventListener("click", () => {
   const d = state.annotations.drawings[f];
   if (d && d.length) { d.pop(); redrawOverlay(); return; }
   // si no hay trazos, deshacer el último ángulo de este frame
-  const idx = [...state.annotations.angles].reverse().findIndex((a) => a.frame === f);
+  const idx = [...(state.annotations.angles || [])].reverse().findIndex((a) => a.frame === f);
   if (idx >= 0) {
     state.annotations.angles.splice(state.annotations.angles.length - 1 - idx, 1);
     redrawOverlay();
@@ -293,7 +293,7 @@ document.getElementById("clearBtn").addEventListener("click", () => {
   const f = state.frame;
   delete state.annotations.drawings[f];
   delete state.annotations.corrections[f];
-  state.annotations.angles = state.annotations.angles.filter((a) => a.frame !== f);
+  state.annotations.angles = (state.annotations.angles || []).filter((a) => a.frame !== f);
   redrawOverlay();
 });
 
