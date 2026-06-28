@@ -5,6 +5,7 @@ Arranca con: ./venv/bin/python -m webtool.server
 """
 from __future__ import annotations
 
+import math
 import os
 
 import cv2
@@ -105,8 +106,9 @@ def create_app() -> Flask:
     def api_landmarks(video: str):
         video_path(video)  # valida existencia / 404
         lm = load_or_extract_landmarks(video)
-        # NaN -> None para JSON válido.
-        clean = np.where(np.isnan(lm), None, lm).tolist()
+        # NaN -> None para JSON válido (plain Python floats/None, no numpy scalars).
+        clean = [[[None if math.isnan(v) else v for v in pt] for pt in frame]
+                 for frame in lm.tolist()]
         return jsonify(landmarks=clean, n_frames=len(clean))
 
     return app

@@ -59,3 +59,17 @@ def test_landmarks_shape(client):
     assert len(lm[0][0]) == 4        # x,y,z,vis
     # Coords normalizadas: x del landmark 0 dentro de un margen razonable.
     assert -0.5 < lm[0][0][0] < 1.5
+
+
+def test_landmarks_nan_serializes_as_null(client, monkeypatch):
+    import numpy as np
+    import webtool.server as srv
+    lm = np.ones((2, 33, 4), dtype=np.float32)
+    lm[0, 0, 0] = np.nan
+    monkeypatch.setattr(srv, "load_or_extract_landmarks", lambda video: lm)
+    resp = client.get("/api/landmarks/PopUpLateral.mov")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["n_frames"] == 2
+    assert data["landmarks"][0][0][0] is None      # the NaN became null
+    assert data["landmarks"][0][0][1] == 1.0        # non-NaN preserved
