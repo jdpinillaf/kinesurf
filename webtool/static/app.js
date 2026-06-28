@@ -45,6 +45,15 @@ async function selectVideo(video) {
     state.meta = await r.json();
     const lr = await fetch(`/api/landmarks/${encodeURIComponent(video)}`);
     state.landmarks = (await lr.json()).landmarks;
+    // Clamp navigable frame count to landmarks length.
+    // iPhone .MOV files cause CAP_PROP_FRAME_COUNT to overestimate the
+    // actual readable frames; MediaPipe only produces landmarks for the
+    // frames it could decode, so landmarks.length is the true upper bound.
+    // Guard: don't clamp when landmarks is empty (no pose detected).
+    if (Array.isArray(state.landmarks) && state.landmarks.length > 0
+        && state.landmarks.length < state.meta.n_frames) {
+      state.meta.n_frames = state.landmarks.length;
+    }
     state.annotations = await (await fetch(
       `/api/annotations/${encodeURIComponent(video)}`)).json();
     state.annotations.corrections = state.annotations.corrections || {};
