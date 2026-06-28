@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import os
 
-from flask import Flask, jsonify, send_from_directory
+import cv2
+from flask import Flask, abort, jsonify, send_from_directory
 
 RAW_DIR = "data/raw"
 OUTPUT_DIR = "data/output"
@@ -21,6 +22,36 @@ def list_videos() -> list[str]:
     return sorted(
         f for f in os.listdir(RAW_DIR) if f.lower().endswith(VIDEO_EXTS)
     )
+
+
+def video_path(video: str) -> str:
+    """Path seguro a un video de data/raw/, o 404 si no existe."""
+    if "/" in video or "\\" in video or not video.lower().endswith(VIDEO_EXTS):
+        abort(404)
+    path = os.path.join(RAW_DIR, video)
+    if not os.path.isfile(path):
+        abort(404)
+    return path
+
+
+def landmarks_npy_path(video: str) -> str:
+    stem = os.path.splitext(video)[0]
+    return os.path.join(OUTPUT_DIR, f"{stem}_landmarks.npy")
+
+
+def read_meta(path: str) -> dict:
+    cap = cv2.VideoCapture(path)
+    cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
+    n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    ok, frame = cap.read()  # dims reales tras auto-orientación
+    if ok:
+        height, width = frame.shape[:2]
+    else:
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    cap.release()
+    return {"fps": fps, "n_frames": n_frames, "width": width, "height": height}
 
 
 def create_app() -> Flask:
@@ -37,6 +68,13 @@ def create_app() -> Flask:
     @app.get("/api/videos")
     def api_videos():
         return jsonify(videos=list_videos())
+
+    @app.get("/api/meta/<video>")
+    def api_meta(video: str):
+        path = video_path(video)
+        meta = read_meta(path)
+        meta["has_landmarks"] = os.path.isfile(landmarks_npy_path(video))
+        return jsonify(meta)
 
     return app
 

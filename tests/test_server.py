@@ -18,3 +18,18 @@ def test_list_videos_returns_existing_raw_videos(client):
     assert "videos" in data
     # En data/raw/ hay al menos PopUpLateral.mov en este repo.
     assert any(v.lower().endswith(".mov") for v in data["videos"])
+
+
+def test_meta_returns_video_dimensions(client):
+    resp = client.get("/api/meta/PopUpLateral.mov")
+    assert resp.status_code == 200
+    m = resp.get_json()
+    assert m["n_frames"] > 0
+    assert m["width"] > 0 and m["height"] > 0
+    assert m["fps"] > 0
+    assert isinstance(m["has_landmarks"], bool)
+
+
+def test_meta_unknown_video_404(client):
+    resp = client.get("/api/meta/nope.mov")
+    assert resp.status_code == 404
