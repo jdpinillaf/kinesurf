@@ -136,4 +136,56 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowRight") showFrame(state.frame + 1);
 });
 
+// ── Herramienta activa ────────────────────────────────────────────────────────
+state.tool = "none";
+document.querySelectorAll("header .tools button[data-tool]").forEach((b) => {
+  b.addEventListener("click", () => {
+    state.tool = b.dataset.tool;
+    document.querySelectorAll("header .tools button[data-tool]")
+      .forEach((x) => x.classList.toggle("active", x === b));
+  });
+});
+
+// px de canvas a partir de un evento de mouse (ajusta por escala de display).
+function evtPos(e) {
+  const r = overlay.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * (overlay.width / r.width),
+    y: (e.clientY - r.top) * (overlay.height / r.height),
+  };
+}
+
+// ── Drag para corregir landmark ───────────────────────────────────────────────
+let dragIdx = null;
+
+function nearestLandmark(pos, maxDist = 18) {
+  let best = null, bestD = maxDist;
+  for (let i = 0; i < 33; i++) {
+    const p = getPoint(state.frame, i);
+    if (!p) continue;
+    const d = Math.hypot(p.x - pos.x, p.y - pos.y);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+overlay.addEventListener("mousedown", (e) => {
+  if (state.tool !== "landmark") return;
+  dragIdx = nearestLandmark(evtPos(e));
+});
+
+overlay.addEventListener("mousemove", (e) => {
+  if (state.tool !== "landmark" || dragIdx === null) return;
+  const pos = evtPos(e);
+  const f = state.frame;
+  // Guard: corrections may be absent on the annotations object from the API.
+  state.annotations.corrections = state.annotations.corrections || {};
+  state.annotations.corrections[f] = state.annotations.corrections[f] || {};
+  state.annotations.corrections[f][dragIdx] =
+    [pos.x / overlay.width, pos.y / overlay.height];
+  redrawOverlay();
+});
+
+window.addEventListener("mouseup", () => { dragIdx = null; });
+
 loadVideos();
