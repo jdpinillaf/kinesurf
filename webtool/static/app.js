@@ -64,6 +64,7 @@ let _frameSeq = 0;   // discards stale async frame loads (rapid nav)
 
 async function showFrame(n) {
   if (!state.meta) return;
+  anglePts = [];
   n = Math.max(0, Math.min(n, state.meta.n_frames - 1));
   state.frame = n;
   els.slider.value = n;
@@ -143,6 +144,7 @@ state.tool = "none";
 document.querySelectorAll("header .tools button[data-tool]").forEach((b) => {
   b.addEventListener("click", () => {
     state.tool = b.dataset.tool;
+    anglePts = [];
     document.querySelectorAll("header .tools button[data-tool]")
       .forEach((x) => x.classList.toggle("active", x === b));
   });
