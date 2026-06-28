@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Surf Pop-Up — Etiquetado</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <select id="videoSelect"></select>
+    <label><input type="checkbox" id="skeletonToggle" checked> esqueleto</label>
+    <span class="tools">
+      <button data-tool="none" class="active">cursor</button>
+      <button data-tool="landmark">corregir</button>
+      <button data-tool="angle">ángulo</button>
+      <button data-tool="pen">dibujo</button>
+      <button id="undoBtn">undo</button>
+      <button id="clearBtn">clear frame</button>
+      <button id="saveBtn">guardar</button>
+    </span>
+    <span id="status"></span>
+  </header>
+
+  <div id="stage">
+    <canvas id="base"></canvas>
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <footer>
+    <button id="prevBtn">◀</button>
+    <input type="range" id="slider" min="0" value="0">
+    <button id="nextBtn">▶</button>
+    <input type="number" id="frameInput" min="0" value="0" style="width:6em">
+    <span id="frameLabel">0 / 0</span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

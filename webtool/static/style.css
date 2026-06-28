@@ -1,0 +1,14 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #eee; }
+header, footer { display: flex; gap: 8px; align-items: center; padding: 8px 12px;
+  background: #2a2a32; flex-wrap: wrap; }
+header .tools { display: flex; gap: 4px; }
+button { background: #3a3a44; color: #eee; border: 1px solid #555; border-radius: 4px;
+  padding: 4px 10px; cursor: pointer; }
+button.active { background: #4a78c0; border-color: #6a98e0; }
+#stage { position: relative; display: inline-block; margin: 12px; }
+#stage canvas { position: absolute; top: 0; left: 0; }
+#base { position: relative; }
+#overlay { cursor: crosshair; }
+#slider { flex: 1; }
+#status { margin-left: auto; color: #8c8; }
