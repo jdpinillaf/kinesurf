@@ -8,7 +8,8 @@ from __future__ import annotations
 import os
 
 import cv2
-from flask import Flask, abort, jsonify, send_from_directory
+from flask import Flask, Response, abort, jsonify, send_from_directory
+from webtool.frames import FrameReader
 
 RAW_DIR = "data/raw"
 OUTPUT_DIR = "data/output"
@@ -60,6 +61,14 @@ def read_meta(path: str) -> dict:
 
 def create_app() -> Flask:
     app = Flask(__name__, static_folder=None)
+
+    reader = FrameReader()
+
+    @app.get("/api/frame/<video>/<int:n>")
+    def api_frame(video: str, n: int):
+        path = video_path(video)
+        jpeg = reader.get_jpeg(path, n)
+        return Response(jpeg, mimetype="image/jpeg")
 
     @app.get("/")
     def index():

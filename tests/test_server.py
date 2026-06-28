@@ -33,3 +33,17 @@ def test_meta_returns_video_dimensions(client):
 def test_meta_unknown_video_404(client):
     resp = client.get("/api/meta/nope.mov")
     assert resp.status_code == 404
+
+
+def test_frame_returns_jpeg(client):
+    resp = client.get("/api/frame/PopUpLateral.mov/0")
+    assert resp.status_code == 200
+    assert resp.mimetype == "image/jpeg"
+    # JPEG empieza con los magic bytes FF D8.
+    assert resp.data[:2] == b"\xff\xd8"
+
+
+def test_frame_out_of_range_clamps(client):
+    resp = client.get("/api/frame/PopUpLateral.mov/999999")
+    assert resp.status_code == 200
+    assert resp.data[:2] == b"\xff\xd8"
