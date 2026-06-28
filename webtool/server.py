@@ -41,16 +41,20 @@ def landmarks_npy_path(video: str) -> str:
 
 def read_meta(path: str) -> dict:
     cap = cv2.VideoCapture(path)
-    cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1)
-    fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
-    n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    ok, frame = cap.read()  # dims reales tras auto-orientación
-    if ok:
-        height, width = frame.shape[:2]
-    else:
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    cap.release()
+    try:
+        if not cap.isOpened():
+            abort(404)
+        cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1)
+        fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
+        n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        ok, frame = cap.read()  # dims reales tras auto-orientación
+        if ok:
+            height, width = frame.shape[:2]
+        else:
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    finally:
+        cap.release()
     return {"fps": fps, "n_frames": n_frames, "width": width, "height": height}
 
 
