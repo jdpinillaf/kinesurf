@@ -6,6 +6,7 @@ y cachea los últimos frames codificados a JPEG para que la navegación ◀▶ s
 from __future__ import annotations
 
 import logging
+import threading
 from collections import OrderedDict
 
 import cv2
@@ -19,6 +20,10 @@ class FrameReader:
         self._caps: dict[str, cv2.VideoCapture] = {}
         self._counts: dict[str, int] = {}
         self._cache: "OrderedDict[tuple[str, int], bytes]" = OrderedDict()
+        # OpenCV VideoCapture no es thread-safe: un solo cap por video compartido
+        # entre requests concurrentes (dev server multi-thread, 2 panes reproduciendo)
+        # corrompe el decode de ffmpeg. Serializamos seek+read+cache con un lock.
+        self._lock = threading.Lock()
 
     def _cap(self, path: str) -> cv2.VideoCapture:
         cap = self._caps.get(path)
@@ -30,6 +35,10 @@ class FrameReader:
         return cap
 
     def get_jpeg(self, path: str, n: int) -> bytes:
+        with self._lock:
+            return self._get_jpeg_locked(path, n)
+
+    def _get_jpeg_locked(self, path: str, n: int) -> bytes:
         cap = self._cap(path)
         total = self._counts[path]
         n = max(0, min(n, total - 1))

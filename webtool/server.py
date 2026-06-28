@@ -93,6 +93,10 @@ def create_app() -> Flask:
     def index():
         return send_from_directory(STATIC_DIR, "index.html")
 
+    @app.get("/compare")
+    def compare():
+        return send_from_directory(STATIC_DIR, "compare.html")
+
     @app.get("/static/<path:filename>")
     def static_files(filename: str):
         return send_from_directory(STATIC_DIR, filename)
@@ -141,4 +145,8 @@ def create_app() -> Flask:
 
 
 if __name__ == "__main__":
-    create_app().run(host="127.0.0.1", port=5000, debug=True)
+    # Puerto 5001: en macOS el AirPlay Receiver ocupa el 5000 y devuelve 403,
+    # enmascarando si nuestro server está caído. threaded=True + lock en FrameReader.
+    import os as _os
+    port = int(_os.environ.get("PORT", "5001"))
+    create_app().run(host="127.0.0.1", port=port, threaded=True)

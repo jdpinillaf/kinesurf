@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Surf — Comparar 2 videos</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    /* Layout de comparación: 2 columnas */
+    #compareHeader { display: flex; gap: 12px; align-items: center; padding: 8px 12px;
+      background: #2a2a32; flex-wrap: wrap; }
+    #compareHeader .title { font-weight: 600; }
+    #compareHeader a { color: #8ab4f8; }
+    #panes { display: flex; gap: 12px; padding: 12px; align-items: flex-start; }
+    .pane { flex: 1; min-width: 0; background: #242430; border: 1px solid #3a3a44;
+      border-radius: 8px; padding: 8px; }
+    .pane .paneTools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+      margin-bottom: 8px; }
+    .pane .paneTools .tools { display: flex; gap: 4px; }
+    .pane .stage { position: relative; display: block; width: 100%;
+      background: #15151b; border-radius: 4px; overflow: hidden; }
+    /* canvas escala al ancho de la columna manteniendo proporción */
+    .pane canvas { position: absolute; top: 0; left: 0; width: 100%; height: auto; }
+    .pane .base { position: relative; }
+    .pane .overlay { cursor: crosshair; }
+    .pane .paneNav { display: flex; gap: 6px; align-items: center; margin-top: 8px;
+      flex-wrap: wrap; }
+    .pane .slider { flex: 1; min-width: 80px; }
+    .pane .strideWrap { display: flex; align-items: center; gap: 4px; font-size: 13px;
+      color: #aab; }
+    .pane .frameLabel { font-size: 13px; color: #aab; min-width: 64px; }
+    .pane .status { font-size: 13px; color: #8c8; min-width: 60px; }
+    .pane select.videoSelect { max-width: 230px; }
+    @media (max-width: 760px) { #panes { flex-direction: column; } }
+  </style>
+</head>
+<body>
+
+  <div id="compareHeader">
+    <span class="title">Comparar 2 videos</span>
+    <label><input type="checkbox" id="syncToggle"> sincronizar reproductores</label>
+    <span style="margin-left:auto"><a href="/">← volver al etiquetado</a></span>
+  </div>
+
+  <div id="panes">
+    <!-- PANE A (izquierda) -->
+    <div class="pane" id="paneA">
+      <div class="paneTools">
+        <select class="videoSelect"></select>
+        <label><input type="checkbox" class="skeletonToggle" checked> esqueleto</label>
+        <span class="tools">
+          <button data-tool="none" class="active">cursor</button>
+          <button data-tool="landmark">corregir</button>
+          <button data-tool="angle">ángulo</button>
+          <button data-tool="pen">dibujo</button>
+        </span>
+        <button class="undoBtn">undo</button>
+        <button class="clearBtn">clear</button>
+        <button class="saveBtn">guardar</button>
+        <span class="status"></span>
+      </div>
+      <div class="stage">
+        <canvas class="base"></canvas>
+        <canvas class="overlay"></canvas>
+      </div>
+      <div class="paneNav">
+        <button class="playBtn">▶</button>
+        <button class="prevBtn">◀</button>
+        <input type="range" class="slider" min="0" value="0">
+        <button class="nextBtn">▶|</button>
+        <input type="number" class="frameInput" min="0" value="0" style="width:5em">
+        <span class="strideWrap">cada <input type="number" class="strideInput" min="1" value="1" style="width:3.5em"> frames</span>
+        <span class="frameLabel">0 / 0</span>
+      </div>
+    </div>
+
+    <!-- PANE B (derecha) -->
+    <div class="pane" id="paneB">
+      <div class="paneTools">
+        <select class="videoSelect"></select>
+        <label><input type="checkbox" class="skeletonToggle" checked> esqueleto</label>
+        <span class="tools">
+          <button data-tool="none" class="active">cursor</button>
+          <button data-tool="landmark">corregir</button>
+          <button data-tool="angle">ángulo</button>
+          <button data-tool="pen">dibujo</button>
+        </span>
+        <button class="undoBtn">undo</button>
+        <button class="clearBtn">clear</button>
+        <button class="saveBtn">guardar</button>
+        <span class="status"></span>
+      </div>
+      <div class="stage">
+        <canvas class="base"></canvas>
+        <canvas class="overlay"></canvas>
+      </div>
+      <div class="paneNav">
+        <button class="playBtn">▶</button>
+        <button class="prevBtn">◀</button>
+        <input type="range" class="slider" min="0" value="0">
+        <button class="nextBtn">▶|</button>
+        <input type="number" class="frameInput" min="0" value="0" style="width:5em">
+        <span class="strideWrap">cada <input type="number" class="strideInput" min="1" value="1" style="width:3.5em"> frames</span>
+        <span class="frameLabel">0 / 0</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/pane.js"></script>
+  <script src="/static/compare.js"></script>
+</body>
+</html>
