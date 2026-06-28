@@ -36,7 +36,7 @@ function createPane(root) {
   let dragIdx = null;       // landmark en arrastre (o null)
   let penStroke = null;     // trazo activo (o null)
   let anglePts = [];        // clicks A,B,C acumulados (px)
-  let playTimer = null;     // id del setInterval de play
+  let _playToken = 0;       // cancela el loop de play en curso (pausa / nuevo play)
   let hovered = false;      // el mouse está sobre este pane (para teclado)
 
   const $ = (sel) => root.querySelector(sel);
@@ -155,25 +155,36 @@ function createPane(root) {
     if (propagate) emit("step", [dir]);
   }
 
-  // ── Play / pausa temporizado ─────────────────────────────────────────────────
-  function play(propagate = true) {
+  // ── Play / pausa ──────────────────────────────────────────────────────────────
+  // Loop auto-agendado que ESPERA a que cada frame se pinte antes del siguiente.
+  // Clave: con setInterval, si cargar el JPEG tarda más que el intervalo, el guard
+  // anti-stale descarta los repintados y la imagen se ve congelada. Al await-ear
+  // render() cada frame se pinta sí o sí; el ritmo se auto-ajusta a la velocidad de
+  // carga (a lo sumo tiempo-real = 1000*stride/fps por frame).
+  async function play(propagate = true) {
     if (state.playing || !state.meta) return;
     state.playing = true;
     els.playBtn.textContent = "⏸";
-    const fps = state.meta.fps || 30;
-    const dt = Math.max(1000 * state.stride / fps, 16);
-    playTimer = setInterval(() => {
-      if (state.frame + state.stride > state.meta.n_frames - 1) {
-        render(state.meta.n_frames - 1);
-        pause(false);
-        return;
-      }
-      render(state.frame + state.stride);   // avance interno: no re-emitir
-    }, dt);
     if (propagate) emit("play", []);
+    const token = ++_playToken;
+    const last = state.meta.n_frames - 1;
+    const fps = state.meta.fps || 30;
+    if (state.frame >= last) await render(0);   // reiniciar si estaba al final
+    while (state.playing && token === _playToken) {
+      const next = state.frame + state.stride;
+      if (next > last) { pause(false); break; }
+      const t0 = performance.now();
+      await render(next);                        // espera el pintado real
+      if (token !== _playToken) break;           // pausado durante la carga
+      const target = 1000 * state.stride / fps;
+      const elapsed = performance.now() - t0;
+      if (elapsed < target) {
+        await new Promise((r) => setTimeout(r, target - elapsed));
+      }
+    }
   }
   function pause(propagate = true) {
-    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+    _playToken++;              // cancela el loop en curso
     state.playing = false;
     els.playBtn.textContent = "▶";
     if (propagate) emit("pause", []);
