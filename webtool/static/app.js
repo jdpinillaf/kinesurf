@@ -21,30 +21,40 @@ const els = {
 };
 
 async function loadVideos() {
-  const r = await fetch("/api/videos");
-  const { videos } = await r.json();
-  els.videoSelect.innerHTML = "";
-  for (const v of videos) {
-    const opt = document.createElement("option");
-    opt.value = opt.textContent = v;
-    els.videoSelect.appendChild(opt);
+  try {
+    const r = await fetch("/api/videos");
+    const { videos } = await r.json();
+    els.videoSelect.innerHTML = "";
+    for (const v of videos) {
+      const opt = document.createElement("option");
+      opt.value = opt.textContent = v;
+      els.videoSelect.appendChild(opt);
+    }
+    if (videos.length) await selectVideo(videos[0]);
+  } catch (err) {
+    els.status.textContent = "error cargando: " + err.message;
   }
-  if (videos.length) await selectVideo(videos[0]);
 }
 
 async function selectVideo(video) {
-  state.video = video;
-  const r = await fetch(`/api/meta/${encodeURIComponent(video)}`);
-  state.meta = await r.json();
-  // Dimensionar ambos canvas al tamaño real del frame.
-  for (const c of [base, overlay]) {
-    c.width = state.meta.width;
-    c.height = state.meta.height;
+  try {
+    state.video = video;
+    const r = await fetch(`/api/meta/${encodeURIComponent(video)}`);
+    state.meta = await r.json();
+    // Dimensionar ambos canvas al tamaño real del frame.
+    for (const c of [base, overlay]) {
+      c.width = state.meta.width;
+      c.height = state.meta.height;
+    }
+    els.slider.max = state.meta.n_frames - 1;
+    els.frameInput.max = state.meta.n_frames - 1;
+    await showFrame(0);
+  } catch (err) {
+    els.status.textContent = "error cargando: " + err.message;
   }
-  els.slider.max = state.meta.n_frames - 1;
-  els.frameInput.max = state.meta.n_frames - 1;
-  await showFrame(0);
 }
+
+let _frameSeq = 0;   // discards stale async frame loads (rapid nav)
 
 async function showFrame(n) {
   if (!state.meta) return;
@@ -53,12 +63,18 @@ async function showFrame(n) {
   els.slider.value = n;
   els.frameInput.value = n;
   els.frameLabel.textContent = `${n} / ${state.meta.n_frames - 1}`;
-  const img = new Image();
-  img.onload = () => {
-    bctx.drawImage(img, 0, 0, base.width, base.height);
-    redrawOverlay();   // definido en tasks posteriores
-  };
-  img.src = `/api/frame/${encodeURIComponent(state.video)}/${n}`;
+  const seq = ++_frameSeq;
+  await new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      if (seq !== _frameSeq) return resolve();   // a newer frame was requested; drop this paint
+      bctx.drawImage(img, 0, 0, base.width, base.height);
+      redrawOverlay();
+      resolve();
+    };
+    img.onerror = resolve;   // don't hang the promise on a failed load
+    img.src = `/api/frame/${encodeURIComponent(state.video)}/${n}`;
+  });
 }
 
 // Placeholder hasta Task 7+; se redefine al añadir overlays.
