@@ -192,6 +192,26 @@ overlay.addEventListener("mousemove", (e) => {
 
 window.addEventListener("mouseup", () => { dragIdx = null; });
 
+// ── Herramienta de dibujo libre (pen) ────────────────────────────────────────
+let penStroke = null;
+
+overlay.addEventListener("mousedown", (e) => {
+  if (state.tool !== "pen") return;
+  penStroke = { tool: "pen", stroke: [], color: PEN_COLOR };
+  const f = state.frame;
+  state.annotations.drawings[f] = state.annotations.drawings[f] || [];
+  state.annotations.drawings[f].push(penStroke);
+});
+
+overlay.addEventListener("mousemove", (e) => {
+  if (state.tool !== "pen" || !penStroke) return;
+  const p = evtPos(e);
+  penStroke.stroke.push([p.x / overlay.width, p.y / overlay.height]);
+  redrawOverlay();
+});
+
+window.addEventListener("mouseup", () => { penStroke = null; });
+
 // ── Herramienta de ángulo manual (3 clicks: A, vértice B, C) ─────────────────
 let anglePts = [];   // acumula clicks A,B,C en px
 
@@ -221,8 +241,22 @@ function drawAngles() {
   }
 }
 
-// Stub: Task 10 replaces this with the real pen-strokes implementation.
-function drawPenStrokes() {}
+const PEN_COLOR = "#f33";
+
+function drawPenStrokes() {
+  const strokes = state.annotations.drawings[state.frame] || [];
+  octx.lineWidth = 3;
+  octx.lineCap = "round";
+  for (const s of strokes) {
+    octx.strokeStyle = s.color || PEN_COLOR;
+    octx.beginPath();
+    s.stroke.forEach((p, i) => {
+      const x = p[0] * overlay.width, y = p[1] * overlay.height;
+      if (i === 0) octx.moveTo(x, y); else octx.lineTo(x, y);
+    });
+    octx.stroke();
+  }
+}
 
 overlay.addEventListener("click", (e) => {
   if (state.tool !== "angle") return;
@@ -240,6 +274,27 @@ overlay.addEventListener("click", (e) => {
     anglePts = [];
     redrawOverlay();
   }
+});
+
+// ── Undo y clear por frame ────────────────────────────────────────────────────
+document.getElementById("undoBtn").addEventListener("click", () => {
+  const f = state.frame;
+  const d = state.annotations.drawings[f];
+  if (d && d.length) { d.pop(); redrawOverlay(); return; }
+  // si no hay trazos, deshacer el último ángulo de este frame
+  const idx = [...state.annotations.angles].reverse().findIndex((a) => a.frame === f);
+  if (idx >= 0) {
+    state.annotations.angles.splice(state.annotations.angles.length - 1 - idx, 1);
+    redrawOverlay();
+  }
+});
+
+document.getElementById("clearBtn").addEventListener("click", () => {
+  const f = state.frame;
+  delete state.annotations.drawings[f];
+  delete state.annotations.corrections[f];
+  state.annotations.angles = state.annotations.angles.filter((a) => a.frame !== f);
+  redrawOverlay();
 });
 
 loadVideos();
