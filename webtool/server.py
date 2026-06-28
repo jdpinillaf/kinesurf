@@ -129,7 +129,9 @@ def create_app() -> Flask:
     @app.post("/api/annotations/<video>")
     def api_post_annotations(video: str):
         video_path(video)
-        data = request.get_json(force=True)
+        data = request.get_json(force=True, silent=True)
+        if not isinstance(data, dict):
+            abort(400)
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         with open(annotations_path(video), "w") as f:
             json.dump(data, f, indent=2)

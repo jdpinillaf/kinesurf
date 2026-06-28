@@ -102,3 +102,11 @@ def test_annotations_empty_default(client, tmp_path, monkeypatch):
     assert got["corrections"] == {}
     assert got["angles"] == []
     assert got["drawings"] == {}
+
+
+def test_annotations_post_rejects_malformed_body(client, tmp_path, monkeypatch):
+    import webtool.server as srv
+    monkeypatch.setattr(srv, "OUTPUT_DIR", str(tmp_path))
+    # a JSON array (not an object) must be rejected
+    resp = client.post("/api/annotations/PopUpLateral.mov", json=[1, 2, 3])
+    assert resp.status_code == 400
