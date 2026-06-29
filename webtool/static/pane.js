@@ -66,6 +66,7 @@ function createPane(root) {
     clearBtn: $(".clearBtn"),
     saveBtn: $(".saveBtn"),
     status: $(".status"),
+    metricsPanel: $(".metricsPanel"),
     clipSelect: $(".clipSelect"),
     markInBtn: $(".markInBtn"),
     markOutBtn: $(".markOutBtn"),
@@ -75,7 +76,39 @@ function createPane(root) {
   };
 
   // El controlador (compare.js) setea esto para espejar acciones al gemelo.
-  const pane = { root, onAction: null };
+  // onMetrics: hook que el controlador setea para recibir las métricas del frame actual.
+  const pane = { root, onAction: null, onMetrics: null, metrics: [] };
+
+  // ── Métricas biomecánicas del frame actual (metrics.js) ──────────────────────
+  // Resolver que respeta las correcciones manuales de landmarks y escala a píxeles
+  // del canvas (resolución nativa) para no distorsionar los ángulos por la proporción.
+  function metricResolver() {
+    const f = state.frame;
+    return (idx) => {
+      const corr = state.annotations?.corrections?.[f]?.[idx];
+      if (corr) return { x: corr[0] * overlay.width, y: corr[1] * overlay.height, vis: 1 };
+      const p = state.landmarks?.[f]?.[idx];
+      if (!p || p[0] == null) return null;
+      if (p[3] != null && p[3] < 0.5) return null;
+      return { x: p[0] * overlay.width, y: p[1] * overlay.height, vis: p[3] == null ? 1 : p[3] };
+    };
+  }
+  function renderMetricsPanel() {
+    if (!els.metricsPanel) return;
+    els.metricsPanel.innerHTML = "";
+    for (const m of pane.metrics) {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.innerHTML =
+        `<span class="lbl">${m.label}</span><span class="val">${fmtMetric(m.value)}</span>`;
+      els.metricsPanel.appendChild(chip);
+    }
+  }
+  function updateMetrics() {
+    pane.metrics = state.meta ? computeMetrics(metricResolver()) : [];
+    renderMetricsPanel();
+    if (pane.onMetrics) pane.onMetrics(pane.metrics);
+  }
 
   // Notifica una acción de navegación para sync (guardado contra recursión).
   function emit(fn, args) {
@@ -205,6 +238,7 @@ function createPane(root) {
     els.slider.value = n;
     els.frameInput.value = n;
     els.frameLabel.textContent = `${n} / ${hi}`;
+    updateMetrics();   // depende solo de landmarks: refresca ya, sin esperar la imagen
     const seq = ++_frameSeq;
     await new Promise((resolve) => {
       const img = new Image();
@@ -465,6 +499,7 @@ function createPane(root) {
     state.annotations.corrections[f][dragIdx] =
       [pos.x / overlay.width, pos.y / overlay.height];
     redrawOverlay();
+    updateMetrics();   // la corrección manual cambia el ángulo
   });
 
   // dibujo libre (pen)

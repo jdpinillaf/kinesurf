@@ -203,3 +203,49 @@ footer .strideWrap, footer .ffWrap { display: flex; align-items: center; gap: 4p
 /* utilidades */
 .sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px; }
 .grow { flex: 1; }
+
+/* ---------- métricas biomecánicas ---------- */
+/* toggle global: ocultar todo lo de métricas */
+body.metrics-off .metricsPanel,
+body.metrics-off #deltaBar,
+body.metrics-off .cellMetrics { display: none; }
+
+/* colores de diferencia (Δ) */
+.dx-near { color: var(--ok); }
+.dx-far  { color: var(--danger); }
+.dx-na   { color: var(--faint); }
+
+/* panel de métricas en vivo dentro de un pane de /compare */
+.metricsPanel { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--sp-2);
+  flex: 0 0 auto; }
+.metricsPanel .chip { display: inline-flex; gap: 5px; align-items: baseline;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--r-pill); padding: 3px 9px; font-size: var(--fs-xs); }
+.metricsPanel .chip .lbl { color: var(--muted); }
+.metricsPanel .chip .val { color: var(--text); font-weight: 700;
+  font-variant-numeric: tabular-nums; }
+
+/* barra de comparación Δ (frame A vs frame B) bajo los paneles de /compare */
+#deltaBar { flex: 0 0 auto; display: flex; gap: var(--sp-2); flex-wrap: wrap;
+  align-items: stretch; padding: var(--sp-2) var(--sp-4); background: var(--surface);
+  border-top: 1px solid var(--border); }
+#deltaBar .dcard { display: flex; flex-direction: column; gap: 2px; min-width: 118px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 6px 10px; }
+#deltaBar .dcard .dlabel { font-size: var(--fs-xs); color: var(--muted);
+  text-transform: uppercase; letter-spacing: .3px; }
+#deltaBar .dcard .drow { display: flex; gap: 8px; align-items: baseline;
+  font-variant-numeric: tabular-nums; }
+#deltaBar .dcard .drow .a { color: var(--accent-2); font-weight: 700; }
+#deltaBar .dcard .drow .b { color: #f0b86c; font-weight: 700; }
+#deltaBar .dcard .drow .d { margin-left: auto; font-weight: 700; }
+#deltaBar .dhint { align-self: center; color: var(--faint); font-size: var(--fs-xs); }
+
+/* métricas por celda en /sequence */
+.cellMetrics { margin-top: 2px; display: flex; flex-direction: column; gap: 1px;
+  font-size: 10px; line-height: 1.25; min-width: 92px; max-width: 130px; }
+.cellMetrics .m { display: flex; justify-content: space-between; gap: 4px;
+  font-variant-numeric: tabular-nums; }
+.cellMetrics .m .ml { color: var(--muted); }
+.cellMetrics .m .mv { color: var(--text); font-weight: 700; }
+.cellMetrics .m .md { font-weight: 700; }

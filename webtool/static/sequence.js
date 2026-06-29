@@ -103,6 +103,39 @@ function paintStrokes(ctx, strokes, W, H) {
 }
 
 let viewMode = "skeleton";   // "skeleton" | "frame" | "both" | "split"
+let showMetrics = true;      // ángulos por paso + Δ profe vs alumno
+
+// Métricas (metrics.js) del frame f de una columna, en píxeles del video.
+function metricsFor(col, f) {
+  if (!col.lm || !col.meta || f == null) return [];
+  return computeMetrics(makeResolver(col.lm[f], col.meta.width, col.meta.height));
+}
+
+// Bloque .cellMetrics de una celda. En filas de alumno (colB) agrega Δ vs el profe
+// (colA) de la MISMA columna i, coloreado.
+function cellMetricsEl(spec, i, f) {
+  const col = spec.col;
+  const mine = metricsFor(col, f);
+  const isStudent = col === colB;
+  const prof = (isStudent && colA.steps[i] != null) ? metricsFor(colA, colA.steps[i]) : null;
+  const pBy = {};
+  if (prof) prof.forEach((m) => (pBy[m.key] = m));
+  const box = document.createElement("div");
+  box.className = "cellMetrics";
+  for (const m of mine) {
+    const row = document.createElement("div");
+    row.className = "m";
+    let dHtml = "";
+    if (isStudent && pBy[m.key]) {
+      const d = fmtDelta(pBy[m.key].value, m.value);
+      if (d) dHtml = ` <span class="md ${deltaClass(pBy[m.key].value, m.value)}">${d}</span>`;
+    }
+    row.innerHTML =
+      `<span class="ml">${m.label}</span><span class="mv">${fmtMetric(m.value)}${dHtml}</span>`;
+    box.appendChild(row);
+  }
+  return box;
+}
 
 // Pinta una celda según el mode: "skeleton" (encuadrado), "frame", o "both" (frame+esqueleto).
 function cellPaint(canvas, col, f, mode) {
@@ -340,6 +373,8 @@ function makeCellEl(spec, i) {
   const cf = document.createElement("span");
   cf.className = "cf"; cf.textContent = `f ${f}`;
   cell.appendChild(cv); cell.appendChild(cf);
+  // métricas solo en filas "primarias" (spec.rm) para no duplicar en modo split
+  if (showMetrics && spec.rm) cell.appendChild(cellMetricsEl(spec, i, f));
   const note = noteFor(col, spec.mode, f);
   if (note && (note.comment || (note.drawing && note.drawing.length))) {
     const badge = document.createElement("span");
@@ -374,6 +409,10 @@ els.viewMode.addEventListener("change", (e) => {
   colA.drawPreview(); colB.drawPreview();
   renderInfographic();
 });
+document.getElementById("metricsToggle").addEventListener("change", (e) => {
+  showMetrics = e.target.checked;
+  renderInfographic();
+});
 els.autoBtn.addEventListener("click", () => {
   const n = +els.nSteps.value;
   colA.autoSample(n); colB.autoSample(n);
@@ -395,9 +434,10 @@ async function exportPNG() {
   els.status.textContent = "exportando…";
 
   const CELL = 220, PAD = 16, LBL = 90, GAP = 10, TITLE = 38, FNUM = 22;
+  const MH = showMetrics ? 66 : 0;   // alto extra para las líneas de métricas
   const cw = (col) => Math.round(CELL * (col.meta ? col.meta.width / col.meta.height : 0.5625));
   const colW = Math.max(cw(colA), cw(colB));
-  const rowH = CELL + FNUM;
+  const rowH = CELL + FNUM + MH;
   const W = PAD + LBL + ncols * (colW + GAP) + PAD;
   const H = TITLE + rows.length * (rowH + GAP) + PAD;
 
@@ -420,7 +460,8 @@ async function exportPNG() {
     ctx.fillText(r.label, PAD, y0 + ri * (rowH + GAP) + CELL / 2);
   });
   for (const { ri, i, cv, f } of cells) {
-    const cx = PAD + LBL + i * (colW + GAP) + (colW - cv.width) / 2;
+    const colLeft = PAD + LBL + i * (colW + GAP);
+    const cx = colLeft + (colW - cv.width) / 2;
     const y = y0 + ri * (rowH + GAP);
     ctx.fillStyle = "#1b1b22"; ctx.fillRect(cx, y, cv.width, CELL);
     ctx.drawImage(cv, cx, y);
@@ -428,6 +469,31 @@ async function exportPNG() {
     ctx.fillStyle = "#aab"; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
     ctx.fillText(`f ${f}`, cx + cv.width / 2, y + CELL + 15);
     ctx.textAlign = "left";
+    // métricas bajo la celda (solo filas primarias); Δ vs profe en filas de alumno
+    if (showMetrics && rows[ri].rm) {
+      const col = rows[ri].col;
+      const mine = metricsFor(col, f);
+      const isStu = col === colB;
+      const prof = (isStu && colA.steps[i] != null) ? metricsFor(colA, colA.steps[i]) : null;
+      const pBy = {};
+      if (prof) prof.forEach((m) => (pBy[m.key] = m));
+      ctx.font = "10px sans-serif";
+      let ty = y + CELL + FNUM;
+      for (const m of mine) {
+        ctx.fillStyle = "#aab";
+        const line = `${m.label}: ${fmtMetric(m.value)}`;
+        ctx.fillText(line, colLeft, ty);
+        if (isStu && pBy[m.key]) {
+          const d = fmtDelta(pBy[m.key].value, m.value);
+          if (d) {
+            const cls = deltaClass(pBy[m.key].value, m.value);
+            ctx.fillStyle = cls === "dx-far" ? "#f87171" : cls === "dx-near" ? "#34d399" : "#6b7b8a";
+            ctx.fillText(" " + d, colLeft + ctx.measureText(line).width + 2, ty);
+          }
+        }
+        ty += 12;
+      }
+    }
   }
 
   const a = document.createElement("a");

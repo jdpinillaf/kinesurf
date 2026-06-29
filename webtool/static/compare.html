@@ -66,6 +66,7 @@
       <a class="tab" href="/sequence"><span class="ic">▦</span> Secuencia</a>
     </div>
     <span class="nav-spacer"></span>
+    <label style="color:var(--muted)"><input type="checkbox" id="metricsToggle" checked> métricas</label>
     <label style="color:var(--muted)"><input type="checkbox" id="syncToggle"> sincronizar reproductores</label>
   </nav>
 
@@ -119,6 +120,7 @@
         <input type="number" class="ffDelay" min="50" step="50" value="300" style="width:4em" title="ms por frame en modo frame a frame">
         <span class="frameLabel">0 / 0</span>
       </div>
+      <div class="metricsPanel"></div>
     </div>
 
     <!-- PANE B (derecha) -->
@@ -165,9 +167,13 @@
         <input type="number" class="ffDelay" min="50" step="50" value="300" style="width:4em" title="ms por frame en modo frame a frame">
         <span class="frameLabel">0 / 0</span>
       </div>
+      <div class="metricsPanel"></div>
     </div>
   </div>
 
+  <div id="deltaBar"></div>
+
+  <script src="/static/metrics.js"></script>
   <script src="/static/pane.js"></script>
   <script src="/static/compare.js"></script>
 </body>
