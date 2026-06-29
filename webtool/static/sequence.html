@@ -57,6 +57,7 @@
       <option value="skeleton">esqueleto</option>
       <option value="frame">video</option>
       <option value="both">video + esqueleto</option>
+      <option value="split">separado (esqueleto + video)</option>
     </select></label>
     <button id="autoBtn">auto-muestrear</button>
     <button id="saveBtn">guardar</button>
@@ -93,16 +94,8 @@
     </div>
   </div>
 
-  <div id="infographic">
-    <div class="seqRow" id="rowA">
-      <div class="rowLabel">profe</div>
-      <div class="cells"></div>
-    </div>
-    <div class="seqRow" id="rowB">
-      <div class="rowLabel">alumno</div>
-      <div class="cells"></div>
-    </div>
-  </div>
+  <!-- las filas se generan dinámicamente según el modo "ver" (sequence.js) -->
+  <div id="infographic"></div>
 
   <script src="/static/sequence.js"></script>
 </body>

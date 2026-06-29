@@ -82,33 +82,36 @@ function drawSkeletonFrame(ctx, lm, W, H) {
 
 let viewMode = "skeleton";   // "skeleton" | "frame" | "both"
 
-// Pinta una celda según el modo: esqueleto encuadrado, frame real, o frame + esqueleto.
-function cellPaint(canvas, col, f) {
+// Pinta una celda según el mode: "skeleton" (encuadrado), "frame", o "both" (frame+esqueleto).
+function cellPaint(canvas, col, f, mode) {
   const ctx = canvas.getContext("2d"), W = canvas.width, H = canvas.height;
   const lm = col.lm ? col.lm[f] : null;
-  if (viewMode === "skeleton") { drawPose(ctx, lm, W, H); return; }
+  if (mode === "skeleton") { drawPose(ctx, lm, W, H); return; }
   ctx.clearRect(0, 0, W, H);
   const img = new Image();
   img.onload = () => {
     ctx.drawImage(img, 0, 0, W, H);
-    if (viewMode === "both") drawSkeletonFrame(ctx, lm, W, H);
+    if (mode === "both") drawSkeletonFrame(ctx, lm, W, H);
   };
   img.src = `/api/frame/${encodeURIComponent(col.video)}/${f}`;
 }
 
+// Modo de render del preview según el viewMode global (en "split" mostramos both).
+function previewMode() { return viewMode === "split" ? "both" : viewMode; }
+
 // Renderiza una celda a su propio canvas (async para los modos con video) — usado por
 // el export para componer la infografía completa en una sola imagen.
-function cellCanvasAsync(col, f, cellH) {
+function cellCanvasAsync(col, f, cellH, mode) {
   return new Promise((resolve) => {
     const cv = document.createElement("canvas");
     col.sizeCanvas(cv, cellH);
     const ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
     const lm = col.lm ? col.lm[f] : null;
-    if (viewMode === "skeleton") { drawPose(ctx, lm, W, H); resolve(cv); return; }
+    if (mode === "skeleton") { drawPose(ctx, lm, W, H); resolve(cv); return; }
     const img = new Image();
     img.onload = () => {
       ctx.drawImage(img, 0, 0, W, H);
-      if (viewMode === "both") drawSkeletonFrame(ctx, lm, W, H);
+      if (mode === "both") drawSkeletonFrame(ctx, lm, W, H);
       resolve(cv);
     };
     img.onerror = () => resolve(cv);
@@ -128,12 +131,11 @@ const els = {
 let selectedCol = -1;   // columna resaltada (comparar ese paso)
 
 // ── Columna de un video (profe/alumno) ────────────────────────────────────────
-function makeCol(rootId, rowId) {
+function makeCol(rootId) {
   const root = document.getElementById(rootId);
-  const row = document.getElementById(rowId).querySelector(".cells");
   const $ = (s) => root.querySelector(s);
   const c = {
-    rootId, root, row,
+    rootId, root,
     video: null, lm: null, meta: null, clips: [], clip: null,
     steps: [], cursor: 0,
     els: {
@@ -167,14 +169,15 @@ function makeCol(rootId, rowId) {
     c.els.frameLabel.textContent = `${c.cursor} / ${hi}`;
     const f = c.cursor, W = c.els.preview.width, H = c.els.preview.height;
     const lm = c.lm ? c.lm[f] : null;
-    if (viewMode === "skeleton") { drawPose(pctx, lm, W, H); return; }
+    const mode = previewMode();
+    if (mode === "skeleton") { drawPose(pctx, lm, W, H); return; }
     const seq = ++pvSeq;               // descarta paints viejos al scrubbear
     pctx.clearRect(0, 0, W, H);
     const img = new Image();
     img.onload = () => {
       if (seq !== pvSeq) return;
       pctx.drawImage(img, 0, 0, W, H);
-      if (viewMode === "both") drawSkeletonFrame(pctx, lm, W, H);
+      if (mode === "both") drawSkeletonFrame(pctx, lm, W, H);
     };
     img.src = `/api/frame/${encodeURIComponent(c.video)}/${f}`;
   }
@@ -254,53 +257,76 @@ function makeCol(rootId, rowId) {
   return c;
 }
 
-const colA = makeCol("colA", "rowA");
-const colB = makeCol("colB", "rowB");
+const colA = makeCol("colA");
+const colB = makeCol("colB");
 
-// ── Infografía: dos filas alineadas por columna ───────────────────────────────
-function renderRow(col) {
-  col.row.innerHTML = "";
-  const n = Math.max(colA.steps.length, colB.steps.length);
-  for (let i = 0; i < n; i++) {
-    const cell = document.createElement("div");
-    cell.className = "cell" + (i === selectedCol ? " sel" : "");
-    cell.dataset.col = i;
-    const f = col.steps[i];
-    if (f === undefined) {
-      // hueco para mantener columnas alineadas
-      cell.style.visibility = "hidden";
-      cell.style.width = Math.round(CELL_H * (col.meta ? col.meta.width / col.meta.height : 0.5625)) + "px";
-      col.row.appendChild(cell);
-      continue;
-    }
-    const no = document.createElement("span");
-    no.className = "step-no"; no.textContent = i + 1;
+// Filas a mostrar según el modo: normal = 2 (profe/alumno); "split" = 4 (esqueleto y
+// video en filas separadas por persona). Cada fila tiene su propio render mode.
+function rowSpecs() {
+  if (viewMode === "split") return [
+    { label: "profe · esqueleto", col: colA, mode: "skeleton", rm: true },
+    { label: "profe · video", col: colA, mode: "frame", rm: false },
+    { label: "alumno · esqueleto", col: colB, mode: "skeleton", rm: true },
+    { label: "alumno · video", col: colB, mode: "frame", rm: false },
+  ];
+  return [
+    { label: "profe", col: colA, mode: viewMode, rm: true },
+    { label: "alumno", col: colB, mode: viewMode, rm: true },
+  ];
+}
+
+function makeCellEl(spec, i) {
+  const col = spec.col;
+  const cell = document.createElement("div");
+  cell.className = "cell" + (i === selectedCol ? " sel" : "");
+  cell.dataset.col = i;
+  const f = col.steps[i];
+  if (f === undefined) {           // hueco para mantener columnas alineadas
+    cell.style.visibility = "hidden";
+    cell.style.width = Math.round(CELL_H * (col.meta ? col.meta.width / col.meta.height : 0.5625)) + "px";
+    return cell;
+  }
+  const no = document.createElement("span");
+  no.className = "step-no"; no.textContent = i + 1;
+  cell.appendChild(no);
+  if (spec.rm) {                   // el × solo en la fila de esqueleto (evita duplicar)
     const rm = document.createElement("button");
-    rm.className = "rm"; rm.textContent = "×";
-    rm.title = "quitar paso";
+    rm.className = "rm"; rm.textContent = "×"; rm.title = "quitar paso";
     rm.addEventListener("click", (e) => {
       e.stopPropagation();
       col.steps.splice(i, 1);
       renderInfographic();
     });
-    const cv = document.createElement("canvas");
-    col.sizeCanvas(cv, CELL_H);
-    cellPaint(cv, col, f);
-    const cf = document.createElement("span");
-    cf.className = "cf"; cf.textContent = `f ${f}`;
-    cell.appendChild(no); cell.appendChild(rm);
-    cell.appendChild(cv); cell.appendChild(cf);
-    cell.addEventListener("click", () => {
-      selectedCol = (selectedCol === i ? -1 : i);
-      renderInfographic();
-    });
-    col.row.appendChild(cell);
+    cell.appendChild(rm);
   }
+  const cv = document.createElement("canvas");
+  col.sizeCanvas(cv, CELL_H);
+  cellPaint(cv, col, f, spec.mode);
+  const cf = document.createElement("span");
+  cf.className = "cf"; cf.textContent = `f ${f}`;
+  cell.appendChild(cv); cell.appendChild(cf);
+  cell.addEventListener("click", () => {
+    selectedCol = (selectedCol === i ? -1 : i);
+    renderInfographic();
+  });
+  return cell;
 }
 
 function renderInfographic() {
-  renderRow(colA);
-  renderRow(colB);
+  const infg = document.getElementById("infographic");
+  infg.innerHTML = "";
+  const ncols = Math.max(colA.steps.length, colB.steps.length);
+  for (const spec of rowSpecs()) {
+    const row = document.createElement("div");
+    row.className = "seqRow";
+    const lbl = document.createElement("div");
+    lbl.className = "rowLabel"; lbl.textContent = spec.label;
+    const cells = document.createElement("div");
+    cells.className = "cells";
+    for (let i = 0; i < ncols; i++) cells.appendChild(makeCellEl(spec, i));
+    row.appendChild(lbl); row.appendChild(cells);
+    infg.appendChild(row);
+  }
 }
 
 // ── Controles globales ────────────────────────────────────────────────────────
@@ -324,7 +350,7 @@ els.saveBtn.addEventListener("click", async () => {
 
 // Exporta la infografía completa (2 filas alineadas, etiquetas y nº de frame) a un PNG.
 async function exportPNG() {
-  const rows = [{ label: "profe", col: colA }, { label: "alumno", col: colB }];
+  const rows = rowSpecs();
   const ncols = Math.max(colA.steps.length, colB.steps.length);
   if (!ncols) return;
   els.status.textContent = "exportando…";
@@ -346,7 +372,7 @@ async function exportPNG() {
   // pre-render de todas las celdas (async por los modos con video)
   const tasks = [];
   rows.forEach((r, ri) => r.col.steps.forEach((f, i) =>
-    tasks.push(cellCanvasAsync(r.col, f, CELL).then((cv) => ({ ri, i, f, cv })))));
+    tasks.push(cellCanvasAsync(r.col, f, CELL, r.mode).then((cv) => ({ ri, i, f, cv })))));
   const cells = await Promise.all(tasks);
 
   const y0 = TITLE;
