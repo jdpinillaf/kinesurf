@@ -83,6 +83,13 @@ def create_app() -> Flask:
 
     reader = FrameReader()
 
+    @app.after_request
+    def _no_cache(resp):
+        # Herramienta de dev: que el browser nunca sirva HTML/JS/CSS viejos de cache.
+        if resp.mimetype in ("text/html", "application/javascript", "text/css"):
+            resp.headers["Cache-Control"] = "no-store"
+        return resp
+
     @app.get("/api/frame/<video>/<int:n>")
     def api_frame(video: str, n: int):
         path = video_path(video)

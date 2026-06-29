@@ -68,6 +68,22 @@ function createPane(root) {
     if (pane.onAction) pane.onAction({ fn, args });
   }
 
+  // Dimensiona el .frame para que el video entre completo (contain) en el espacio
+  // disponible del stage, manteniendo la proporción del video. Determinístico: no
+  // depende de aspect-ratio CSS (que se comporta distinto en flujo vs flex).
+  function fitFrame() {
+    if (!state.meta) return;
+    const stage = root.querySelector(".stage");
+    const frameEl = root.querySelector(".frame");
+    if (!stage || !frameEl) return;
+    const aw = stage.clientWidth, ah = stage.clientHeight;
+    const ar = state.meta.width / state.meta.height;
+    let w = aw, h = aw / ar;     // intentar llenar el ancho
+    if (h > ah) { h = ah; w = ah * ar; }   // si excede el alto, limitar por alto
+    frameEl.style.width = Math.floor(w) + "px";
+    frameEl.style.height = Math.floor(h) + "px";
+  }
+
   // ── Carga de videos ──────────────────────────────────────────────────────────
   async function loadVideos() {
     try {
@@ -109,9 +125,7 @@ function createPane(root) {
         c.width = state.meta.width;
         c.height = state.meta.height;
       }
-      // proporción del video para que .frame escale a "contain" dentro del stage
-      const frameEl = root.querySelector(".frame");
-      if (frameEl) frameEl.style.aspectRatio = (state.meta.width / state.meta.height).toString();
+      fitFrame();   // dimensionar el .frame al espacio disponible (contain)
       els.slider.max = state.meta.n_frames - 1;
       els.frameInput.max = state.meta.n_frames - 1;
       // toggle de esqueleto: deshabilitar si no hay landmarks
@@ -293,6 +307,7 @@ function createPane(root) {
   // ── Listeners ──────────────────────────────────────────────────────────────────
   els.videoSelect.addEventListener("change", (e) => load(e.target.value));
   els.skeletonToggle.addEventListener("change", redrawOverlay);
+  window.addEventListener("resize", fitFrame);
   els.playBtn.addEventListener("click", () => togglePlay());
   els.prevBtn.addEventListener("click", () => step(-1));
   els.nextBtn.addEventListener("click", () => step(1));
