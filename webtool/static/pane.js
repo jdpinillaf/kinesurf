@@ -31,6 +31,10 @@ function createPane(root) {
     tool: "none",
     stride: 1,
     playing: false,
+    clips: [],          // clips guardados de este video [{name,start,end}]
+    clip: null,         // clip activo (acota la navegación) o null = video completo
+    markIn: null,       // marca de inicio pendiente (frame)
+    markOut: null,      // marca de fin pendiente (frame)
   };
   let _frameSeq = 0;        // descarta paints de frames viejos (navegación rápida)
   let dragIdx = null;       // landmark en arrastre (o null)
@@ -58,6 +62,12 @@ function createPane(root) {
     clearBtn: $(".clearBtn"),
     saveBtn: $(".saveBtn"),
     status: $(".status"),
+    clipSelect: $(".clipSelect"),
+    markInBtn: $(".markInBtn"),
+    markOutBtn: $(".markOutBtn"),
+    clipRange: $(".clipRange"),
+    clipNameInput: $(".clipNameInput"),
+    saveClipBtn: $(".saveClipBtn"),
   };
 
   // El controlador (compare.js) setea esto para espejar acciones al gemelo.
@@ -82,6 +92,42 @@ function createPane(root) {
     if (h > ah) { h = ah; w = ah * ar; }   // si excede el alto, limitar por alto
     frameEl.style.width = Math.floor(w) + "px";
     frameEl.style.height = Math.floor(h) + "px";
+  }
+
+  // ── Clips (recorte por rango de frames) ───────────────────────────────────────
+  // Rango navegable: [lo, hi]. Con un clip activo se acota a su [start, end].
+  function bounds() {
+    if (!state.meta) return [0, 0];
+    const max = state.meta.n_frames - 1;
+    if (state.clip) {
+      return [Math.max(0, state.clip.start), Math.min(max, state.clip.end)];
+    }
+    return [0, max];
+  }
+
+  // Aplica el rango actual a slider/input y reencuadra el frame si quedó fuera.
+  function applyBounds() {
+    const [lo, hi] = bounds();
+    els.slider.min = lo; els.slider.max = hi;
+    els.frameInput.min = lo; els.frameInput.max = hi;
+    render(state.frame < lo || state.frame > hi ? lo : state.frame);
+  }
+
+  function populateClips() {
+    els.clipSelect.innerHTML = '<option value="">video completo</option>';
+    state.clips.forEach((c, i) => {
+      const o = document.createElement("option");
+      o.value = String(i);
+      o.textContent = `${c.name} (${c.start}–${c.end})`;
+      els.clipSelect.appendChild(o);
+    });
+    els.clipSelect.value = state.clip ? String(state.clips.indexOf(state.clip)) : "";
+  }
+
+  function updateClipRange() {
+    const a = state.markIn, b = state.markOut;
+    els.clipRange.textContent =
+      `in: ${a == null ? "–" : a} · out: ${b == null ? "–" : b}`;
   }
 
   // ── Carga de videos ──────────────────────────────────────────────────────────
@@ -121,11 +167,18 @@ function createPane(root) {
       state.annotations.corrections = state.annotations.corrections || {};
       state.annotations.angles = state.annotations.angles || [];
       state.annotations.drawings = state.annotations.drawings || {};
+      // clips de este video
+      const cl = await (await fetch(`/api/clips/${encodeURIComponent(video)}`)).json();
+      state.clips = cl.clips || [];
+      state.clip = null; state.markIn = null; state.markOut = null;
+      populateClips();
+      updateClipRange();
       for (const c of [base, overlay]) {
         c.width = state.meta.width;
         c.height = state.meta.height;
       }
       fitFrame();   // dimensionar el .frame al espacio disponible (contain)
+      els.slider.min = 0; els.frameInput.min = 0;
       els.slider.max = state.meta.n_frames - 1;
       els.frameInput.max = state.meta.n_frames - 1;
       // toggle de esqueleto: deshabilitar si no hay landmarks
@@ -142,11 +195,12 @@ function createPane(root) {
   async function render(n) {
     if (!state.meta) return;
     anglePts = [];
-    n = Math.max(0, Math.min(n, state.meta.n_frames - 1));
+    const [lo, hi] = bounds();
+    n = Math.max(lo, Math.min(n, hi));
     state.frame = n;
     els.slider.value = n;
     els.frameInput.value = n;
-    els.frameLabel.textContent = `${n} / ${state.meta.n_frames - 1}`;
+    els.frameLabel.textContent = `${n} / ${hi}`;
     const seq = ++_frameSeq;
     await new Promise((resolve) => {
       const img = new Image();
@@ -184,12 +238,12 @@ function createPane(root) {
     els.playBtn.textContent = "⏸";
     if (propagate) emit("play", []);
     const token = ++_playToken;
-    const last = state.meta.n_frames - 1;
+    const [lo, hi] = bounds();
     const fps = state.meta.fps || 30;
-    if (state.frame >= last) await render(0);   // reiniciar si estaba al final
+    if (state.frame >= hi) await render(lo);   // reiniciar al inicio del rango
     while (state.playing && token === _playToken) {
       const next = state.frame + state.stride;
-      if (next > last) { pause(false); break; }
+      if (next > hi) { pause(false); break; }
       const t0 = performance.now();
       await render(next);                        // espera el pintado real
       if (token !== _playToken) break;           // pausado durante la carga
@@ -316,6 +370,51 @@ function createPane(root) {
   els.strideInput.addEventListener("change", (e) => {
     state.stride = Math.max(1, parseInt(e.target.value, 10) || 1);
     els.strideInput.value = state.stride;
+  });
+
+  // ── Clips: seleccionar, marcar in/out, guardar ────────────────────────────────
+  els.clipSelect.addEventListener("change", (e) => {
+    const v = e.target.value;
+    state.clip = v === "" ? null : (state.clips[+v] || null);
+    applyBounds();
+  });
+  els.markInBtn.addEventListener("click", () => {
+    state.markIn = state.frame; updateClipRange();
+  });
+  els.markOutBtn.addEventListener("click", () => {
+    state.markOut = state.frame; updateClipRange();
+  });
+  els.saveClipBtn.addEventListener("click", async () => {
+    if (!state.video) return;
+    if (state.markIn == null || state.markOut == null) {
+      els.status.textContent = "marcá inicio y fin";
+      setTimeout(() => (els.status.textContent = ""), 2000);
+      return;
+    }
+    const start = Math.min(state.markIn, state.markOut);
+    const end = Math.max(state.markIn, state.markOut);
+    const name = (els.clipNameInput.value || `clip ${state.clips.length + 1}`).trim();
+    const clip = { name, start, end };
+    state.clips.push(clip);
+    try {
+      const r = await fetch(`/api/clips/${encodeURIComponent(state.video)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ video: state.video, clips: state.clips }),
+      });
+      const ok = r.ok && (await r.json()).ok;
+      els.status.textContent = ok ? "clip guardado ✓" : "error";
+    } catch (err) {
+      els.status.textContent = "error";
+    }
+    setTimeout(() => (els.status.textContent = ""), 2000);
+    // seleccionar el clip recién creado y acotar a su rango
+    state.clip = clip;
+    state.markIn = null; state.markOut = null;
+    els.clipNameInput.value = "";
+    populateClips();
+    updateClipRange();
+    applyBounds();
   });
 
   // teclado: solo cuando el mouse está sobre este pane

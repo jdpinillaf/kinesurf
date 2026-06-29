@@ -21,6 +21,11 @@
     .pane .paneTools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
       margin-bottom: 8px; flex: 0 0 auto; }
     .pane .paneTools .tools { display: flex; gap: 4px; }
+    /* barra de clips (recorte por rango de frames) */
+    .pane .clipBar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+      margin-bottom: 8px; flex: 0 0 auto; font-size: 13px; }
+    .pane .clipBar .clipRange { color: #aab; min-width: 96px; }
+    .pane .clipSelect { max-width: 180px; }
     /* stage ocupa el alto sobrante; el video se centra dentro */
     .pane .stage { flex: 1 1 auto; min-height: 0; display: flex;
       align-items: center; justify-content: center; overflow: hidden; }
@@ -64,6 +69,14 @@
         <button class="saveBtn">guardar</button>
         <span class="status"></span>
       </div>
+      <div class="clipBar">
+        <select class="clipSelect"><option value="">video completo</option></select>
+        <button class="markInBtn">[ inicio</button>
+        <button class="markOutBtn">fin ]</button>
+        <span class="clipRange">—</span>
+        <input class="clipNameInput" placeholder="nombre clip" style="width:8em">
+        <button class="saveClipBtn">+ clip</button>
+      </div>
       <div class="stage">
         <div class="frame">
           <canvas class="base"></canvas>
@@ -96,6 +109,14 @@
         <button class="clearBtn">clear</button>
         <button class="saveBtn">guardar</button>
         <span class="status"></span>
+      </div>
+      <div class="clipBar">
+        <select class="clipSelect"><option value="">video completo</option></select>
+        <button class="markInBtn">[ inicio</button>
+        <button class="markOutBtn">fin ]</button>
+        <span class="clipRange">—</span>
+        <input class="clipNameInput" placeholder="nombre clip" style="width:8em">
+        <button class="saveClipBtn">+ clip</button>
       </div>
       <div class="stage">
         <div class="frame">

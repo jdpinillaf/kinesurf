@@ -49,6 +49,11 @@ def annotations_path(video: str) -> str:
     return os.path.join(OUTPUT_DIR, f"{stem}_annotations.json")
 
 
+def clips_path(video: str) -> str:
+    stem = os.path.splitext(video)[0]
+    return os.path.join(OUTPUT_DIR, f"{stem}_clips.json")
+
+
 def load_or_extract_landmarks(video: str) -> np.ndarray:
     npy = landmarks_npy_path(video)
     if os.path.isfile(npy):
@@ -145,6 +150,26 @@ def create_app() -> Flask:
             abort(400)
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         with open(annotations_path(video), "w") as f:
+            json.dump(data, f, indent=2)
+        return jsonify(ok=True)
+
+    @app.get("/api/clips/<video>")
+    def api_get_clips(video: str):
+        video_path(video)  # 404 si no existe el video
+        path = clips_path(video)
+        if os.path.isfile(path):
+            with open(path) as f:
+                return jsonify(json.load(f))
+        return jsonify(video=video, clips=[])
+
+    @app.post("/api/clips/<video>")
+    def api_post_clips(video: str):
+        video_path(video)
+        data = request.get_json(force=True, silent=True)
+        if not isinstance(data, dict):
+            abort(400)
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        with open(clips_path(video), "w") as f:
             json.dump(data, f, indent=2)
         return jsonify(ok=True)
 
