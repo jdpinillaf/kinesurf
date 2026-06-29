@@ -1,14 +1,197 @@
+/* ============================================================
+   Surf Analyzer — design system (Ocean dark)
+   Tokens + componentes compartidos por las 3 vistas.
+   IMPORTANTE: no renombrar IDs/clases que usa el JS; esto solo
+   estiliza. Hooks: .tools button[data-tool], button.active, etc.
+   ============================================================ */
+
+:root {
+  /* superficies */
+  --bg:        #0e151c;
+  --surface:   #18212b;
+  --surface-2: #212c38;
+  --surface-3: #2a3744;
+  --border:    #2e3b48;
+  --border-2:  #3b4b59;
+
+  /* texto */
+  --text:  #e6edf3;
+  --muted: #93a4b3;
+  --faint: #6b7b8a;
+
+  /* acento surf (teal/cyan) */
+  --accent:       #2dd4bf;
+  --accent-2:     #38bdf8;
+  --accent-press: #14b8a6;
+  --accent-ink:   #05201d;   /* texto sobre acento */
+  --accent-soft:  rgba(45, 212, 191, .14);
+
+  /* semánticos */
+  --ok:     #34d399;
+  --danger: #f87171;
+  --warn:   #fbbf24;
+
+  /* escala / forma */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;  --sp-4: 16px;  --sp-5: 24px;
+  --r:    8px;  --r-sm: 6px;  --r-lg: 12px;  --r-pill: 999px;
+  --ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  --shadow-1: 0 1px 2px rgba(0,0,0,.3);
+  --shadow-2: 0 6px 20px rgba(0,0,0,.35);
+
+  --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-lg: 16px;
+  --font: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
 * { box-sizing: border-box; }
-body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e24; color: #eee; }
-header, footer { display: flex; gap: 8px; align-items: center; padding: 8px 12px;
-  background: #2a2a32; flex-wrap: wrap; }
-header .tools { display: flex; gap: 4px; }
-button { background: #3a3a44; color: #eee; border: 1px solid #555; border-radius: 4px;
-  padding: 4px 10px; cursor: pointer; }
-button.active { background: #4a78c0; border-color: #6a98e0; }
-#stage { position: relative; display: inline-block; margin: 12px; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--fs-md);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- navegación global (brand + pestañas) ---------- */
+.topnav {
+  display: flex; align-items: center; gap: var(--sp-4);
+  padding: 0 var(--sp-4);
+  height: 52px;
+  background: linear-gradient(180deg, #16202a, #131b23);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.topnav .brand {
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-weight: 700; font-size: var(--fs-lg); letter-spacing: .2px;
+  color: var(--text); text-decoration: none; white-space: nowrap;
+}
+.topnav .brand .logo { font-size: 20px; }
+.topnav .brand .accent {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.topnav .tabs { display: flex; gap: var(--sp-1); }
+.topnav .tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px var(--sp-3);
+  border-radius: var(--r-pill);
+  color: var(--muted); text-decoration: none; font-weight: 600;
+  font-size: var(--fs-sm); line-height: 1;
+  border: 1px solid transparent;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.topnav .tab:hover { color: var(--text); background: var(--surface-2); }
+.topnav .tab[aria-current="page"] {
+  color: var(--accent); background: var(--accent-soft);
+  border-color: rgba(45,212,191,.35);
+}
+.topnav .tab .ic { font-size: 14px; }
+.topnav .nav-spacer { margin-left: auto; }
+.topnav .nav-hint { color: var(--faint); font-size: var(--fs-xs); }
+
+/* ---------- barras de herramientas (header/footer y per-pane) ---------- */
+header, footer {
+  display: flex; gap: var(--sp-2); align-items: center;
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+footer { border-bottom: none; border-top: 1px solid var(--border); }
+
+/* ---------- botones ---------- */
+button {
+  font: 600 var(--fs-sm)/1 var(--font);
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s, transform .04s;
+}
+button:hover { background: var(--surface-3); border-color: #46586a; }
+button:active { transform: translateY(1px); }
+button.active {
+  background: var(--accent-soft); color: var(--accent);
+  border-color: rgba(45,212,191,.45);
+}
+
+/* acción primaria: guardar / exportar (clase opcional, no rompe nada) */
+button.primary, #saveBtn, .saveBtn, #exportBtn, #mSave {
+  background: var(--accent); color: var(--accent-ink);
+  border-color: var(--accent);
+}
+button.primary:hover, #saveBtn:hover, .saveBtn:hover,
+#exportBtn:hover, #mSave:hover {
+  background: var(--accent-press); border-color: var(--accent-press);
+}
+button.danger, #mClear:hover, .clearBtn:hover { }
+
+/* segmented control: grupo de herramientas data-tool */
+.tools {
+  display: inline-flex; gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-pill);
+  padding: 2px;
+}
+.tools button[data-tool] {
+  background: transparent; border: none; border-radius: var(--r-pill);
+  padding: 6px 13px; color: var(--muted);
+}
+.tools button[data-tool]:hover { background: var(--surface-2); color: var(--text); }
+.tools button[data-tool].active {
+  background: var(--accent); color: var(--accent-ink);
+  box-shadow: var(--shadow-1);
+}
+
+/* ---------- inputs, selects, range, checkbox ---------- */
+select, input[type="number"], input[type="text"], textarea {
+  font: var(--fs-sm)/1.3 var(--font);
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  padding: 6px 8px;
+}
+select { cursor: pointer; }
+input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px;
+  vertical-align: -2px; cursor: pointer; }
+label { color: var(--muted); font-size: var(--fs-sm); user-select: none; }
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none; height: 6px;
+  background: var(--surface-3); border-radius: var(--r-pill);
+  outline: none; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #0c1218; box-shadow: var(--shadow-1);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #0c1218;
+}
+
+/* foco accesible visible para teclado */
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-sm); }
+
+/* ---------- vista de etiquetado (index) ---------- */
+#stage { position: relative; display: inline-block; margin: var(--sp-4);
+  border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow-2); }
 #stage canvas { position: absolute; top: 0; left: 0; }
 #base { position: relative; }
 #overlay { cursor: crosshair; }
 #slider { flex: 1; }
-#status { margin-left: auto; color: #8c8; }
+#status, .status { color: var(--ok); font-size: var(--fs-sm); font-weight: 600; }
+header .tools, footer .tools { flex: 0 0 auto; }
+#status { margin-left: auto; }
+footer .frameLabel, footer #frameLabel { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* utilidades */
+.sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px; }
+.grow { flex: 1; }

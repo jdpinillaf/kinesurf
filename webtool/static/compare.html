@@ -3,55 +3,75 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Surf — Comparar 2 videos</title>
+  <title>Surf Analyzer — Comparar</title>
   <link rel="stylesheet" href="/static/style.css">
   <style>
     /* Layout de comparación: todo cabe en 100vh, sin scroll de página */
     html, body { height: 100%; margin: 0; overflow: hidden; }
     body { display: flex; flex-direction: column; }
-    #compareHeader { display: flex; gap: 12px; align-items: center; padding: 8px 12px;
-      background: #2a2a32; flex-wrap: wrap; flex: 0 0 auto; }
-    #compareHeader .title { font-weight: 600; }
-    #compareHeader a { color: #8ab4f8; }
+
+    #compareHeader { display: flex; gap: var(--sp-3); align-items: center;
+      padding: var(--sp-2) var(--sp-4); background: var(--surface);
+      border-bottom: 1px solid var(--border); flex-wrap: wrap; flex: 0 0 auto; }
+    #compareHeader .title { font-weight: 700; }
+    #compareHeader .hint { color: var(--faint); font-size: var(--fs-xs); }
+
     /* fila de 2 columnas que ocupa el alto restante */
-    #panes { flex: 1 1 auto; min-height: 0; display: flex; gap: 10px; padding: 10px; }
-    .pane { flex: 1; min-width: 0; min-height: 0; background: #242430;
-      border: 1px solid #3a3a44; border-radius: 8px; padding: 8px;
-      display: flex; flex-direction: column; }
+    #panes { flex: 1 1 auto; min-height: 0; display: flex; gap: var(--sp-3);
+      padding: var(--sp-3); }
+    .pane { flex: 1; min-width: 0; min-height: 0; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--sp-3);
+      display: flex; flex-direction: column; box-shadow: var(--shadow-1); }
     .pane .paneTools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
-      margin-bottom: 8px; flex: 0 0 auto; }
-    .pane .paneTools .tools { display: flex; gap: 4px; }
+      margin-bottom: var(--sp-2); flex: 0 0 auto; }
+    .pane .paneTools .grow { flex: 1; }
     /* barra de clips (recorte por rango de frames) */
     .pane .clipBar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
-      margin-bottom: 8px; flex: 0 0 auto; font-size: 13px; }
-    .pane .clipBar .clipRange { color: #aab; min-width: 96px; }
+      margin-bottom: var(--sp-2); flex: 0 0 auto; font-size: var(--fs-sm);
+      padding: 6px var(--sp-2); background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: var(--r-sm); }
+    .pane .clipBar .clipLabel { color: var(--faint); font-size: var(--fs-xs);
+      text-transform: uppercase; letter-spacing: .4px; }
+    .pane .clipBar .clipRange { color: var(--accent-2); min-width: 96px;
+      font-variant-numeric: tabular-nums; }
     .pane .clipSelect { max-width: 180px; }
     /* stage ocupa el alto sobrante; el video se centra dentro */
     .pane .stage { flex: 1 1 auto; min-height: 0; display: flex;
       align-items: center; justify-content: center; overflow: hidden; }
-    /* .frame: su tamaño en px lo calcula JS (fitFrame) con math de "contain"
-       según el espacio real del stage y la proporción del video. */
-    .pane .frame { position: relative; background: #15151b; border-radius: 4px; }
+    .pane .frame { position: relative; background: #0b1117; border-radius: var(--r);
+      box-shadow: var(--shadow-2); }
     .pane .frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
     .pane .overlay { cursor: crosshair; }
-    .pane .paneNav { display: flex; gap: 6px; align-items: center; margin-top: 8px;
+    .pane .paneNav { display: flex; gap: 6px; align-items: center; margin-top: var(--sp-2);
       flex-wrap: wrap; flex: 0 0 auto; }
     .pane .slider { flex: 1; min-width: 80px; }
-    .pane .strideWrap { display: flex; align-items: center; gap: 4px; font-size: 13px;
-      color: #aab; }
-    .pane .ffWrap { display: flex; align-items: center; gap: 4px; font-size: 13px;
-      color: #aab; }
-    .pane .frameLabel { font-size: 13px; color: #aab; min-width: 64px; }
-    .pane .status { font-size: 13px; color: #8c8; min-width: 60px; }
+    .pane .strideWrap, .pane .ffWrap { display: flex; align-items: center; gap: 4px;
+      font-size: var(--fs-sm); color: var(--muted); }
+    .pane .frameLabel { font-size: var(--fs-sm); color: var(--muted); min-width: 64px;
+      font-variant-numeric: tabular-nums; }
+    .pane .status { font-size: var(--fs-sm); min-width: 60px; }
     .pane select.videoSelect { max-width: 200px; }
+    .pane .playBtn { background: var(--accent); color: var(--accent-ink);
+      border-color: var(--accent); }
+    .pane .playBtn:hover { background: var(--accent-press); border-color: var(--accent-press); }
   </style>
 </head>
 <body>
 
+  <nav class="topnav">
+    <a class="brand" href="/"><span class="logo">🏄</span> Surf <span class="accent">Analyzer</span></a>
+    <div class="tabs">
+      <a class="tab" href="/"><span class="ic">✎</span> Etiquetar</a>
+      <a class="tab" href="/compare" aria-current="page"><span class="ic">⇄</span> Comparar</a>
+      <a class="tab" href="/sequence"><span class="ic">▦</span> Secuencia</a>
+    </div>
+    <span class="nav-spacer"></span>
+    <label style="color:var(--muted)"><input type="checkbox" id="syncToggle"> sincronizar reproductores</label>
+  </nav>
+
   <div id="compareHeader">
     <span class="title">Comparar 2 videos</span>
-    <label><input type="checkbox" id="syncToggle"> sincronizar reproductores</label>
-    <span style="margin-left:auto"><a href="/">← volver al etiquetado</a></span>
+    <span class="hint">profesor vs. alumno · play/pausa y recorte independientes por panel</span>
   </div>
 
   <div id="panes">
@@ -60,21 +80,24 @@
       <div class="paneTools">
         <select class="videoSelect"></select>
         <label><input type="checkbox" class="skeletonToggle" checked> esqueleto</label>
-        <span class="tools">
+        <span class="sep"></span>
+        <span class="tools" role="group" aria-label="herramientas">
           <button data-tool="none" class="active">cursor</button>
           <button data-tool="landmark">corregir</button>
           <button data-tool="angle">ángulo</button>
           <button data-tool="pen">dibujo</button>
         </span>
-        <button class="undoBtn">undo</button>
-        <button class="clearBtn">clear</button>
-        <button class="saveBtn">guardar</button>
+        <span class="grow"></span>
+        <button class="undoBtn" title="deshacer">↶</button>
+        <button class="clearBtn" title="borrar frame">🗑</button>
+        <button class="saveBtn" title="guardar">guardar</button>
         <span class="status"></span>
       </div>
       <div class="clipBar">
+        <span class="clipLabel">clip</span>
         <select class="clipSelect"><option value="">video completo</option></select>
-        <button class="markInBtn">[ inicio</button>
-        <button class="markOutBtn">fin ]</button>
+        <button class="markInBtn" title="marcar inicio en frame actual">[ inicio</button>
+        <button class="markOutBtn" title="marcar fin en frame actual">fin ]</button>
         <span class="clipRange">—</span>
         <input class="clipNameInput" placeholder="nombre clip" style="width:8em">
         <button class="saveClipBtn">+ clip</button>
@@ -87,12 +110,12 @@
       </div>
       <div class="paneNav">
         <button class="playBtn" title="reproducir / pausar">▶ play</button>
-        <button class="prevBtn" title="frame anterior (← )">◀ frame</button>
+        <button class="prevBtn" title="frame anterior">◀</button>
         <input type="range" class="slider" min="0" value="0">
-        <button class="nextBtn" title="frame siguiente ( →)">frame ▶</button>
+        <button class="nextBtn" title="frame siguiente">▶</button>
         <input type="number" class="frameInput" min="0" value="0" style="width:5em">
         <span class="strideWrap">cada <input type="number" class="strideInput" min="1" value="1" style="width:3.5em"> frames</span>
-        <label class="ffWrap"><input type="checkbox" class="ffToggle"> frame a frame</label>
+        <label class="ffWrap" title="reproducir avanzando 1 frame a la vez"><input type="checkbox" class="ffToggle"> frame a frame</label>
         <input type="number" class="ffDelay" min="50" step="50" value="300" style="width:4em" title="ms por frame en modo frame a frame">
         <span class="frameLabel">0 / 0</span>
       </div>
@@ -103,21 +126,24 @@
       <div class="paneTools">
         <select class="videoSelect"></select>
         <label><input type="checkbox" class="skeletonToggle" checked> esqueleto</label>
-        <span class="tools">
+        <span class="sep"></span>
+        <span class="tools" role="group" aria-label="herramientas">
           <button data-tool="none" class="active">cursor</button>
           <button data-tool="landmark">corregir</button>
           <button data-tool="angle">ángulo</button>
           <button data-tool="pen">dibujo</button>
         </span>
-        <button class="undoBtn">undo</button>
-        <button class="clearBtn">clear</button>
-        <button class="saveBtn">guardar</button>
+        <span class="grow"></span>
+        <button class="undoBtn" title="deshacer">↶</button>
+        <button class="clearBtn" title="borrar frame">🗑</button>
+        <button class="saveBtn" title="guardar">guardar</button>
         <span class="status"></span>
       </div>
       <div class="clipBar">
+        <span class="clipLabel">clip</span>
         <select class="clipSelect"><option value="">video completo</option></select>
-        <button class="markInBtn">[ inicio</button>
-        <button class="markOutBtn">fin ]</button>
+        <button class="markInBtn" title="marcar inicio en frame actual">[ inicio</button>
+        <button class="markOutBtn" title="marcar fin en frame actual">fin ]</button>
         <span class="clipRange">—</span>
         <input class="clipNameInput" placeholder="nombre clip" style="width:8em">
         <button class="saveClipBtn">+ clip</button>
@@ -130,12 +156,12 @@
       </div>
       <div class="paneNav">
         <button class="playBtn" title="reproducir / pausar">▶ play</button>
-        <button class="prevBtn" title="frame anterior (← )">◀ frame</button>
+        <button class="prevBtn" title="frame anterior">◀</button>
         <input type="range" class="slider" min="0" value="0">
-        <button class="nextBtn" title="frame siguiente ( →)">frame ▶</button>
+        <button class="nextBtn" title="frame siguiente">▶</button>
         <input type="number" class="frameInput" min="0" value="0" style="width:5em">
         <span class="strideWrap">cada <input type="number" class="strideInput" min="1" value="1" style="width:3.5em"> frames</span>
-        <label class="ffWrap"><input type="checkbox" class="ffToggle"> frame a frame</label>
+        <label class="ffWrap" title="reproducir avanzando 1 frame a la vez"><input type="checkbox" class="ffToggle"> frame a frame</label>
         <input type="number" class="ffDelay" min="50" step="50" value="300" style="width:4em" title="ms por frame en modo frame a frame">
         <span class="frameLabel">0 / 0</span>
       </div>

@@ -2,22 +2,37 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Surf Pop-Up — Etiquetado</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Surf Analyzer — Etiquetado</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+
+  <nav class="topnav">
+    <a class="brand" href="/"><span class="logo">🏄</span> Surf <span class="accent">Analyzer</span></a>
+    <div class="tabs">
+      <a class="tab" href="/"        aria-current="page"><span class="ic">✎</span> Etiquetar</a>
+      <a class="tab" href="/compare"><span class="ic">⇄</span> Comparar</a>
+      <a class="tab" href="/sequence"><span class="ic">▦</span> Secuencia</a>
+    </div>
+    <span class="nav-spacer"></span>
+    <span class="nav-hint">corrige poses y marca ángulos sobre un video</span>
+  </nav>
+
   <header>
-    <select id="videoSelect"></select>
+    <select id="videoSelect" title="elegir video"></select>
     <label><input type="checkbox" id="skeletonToggle" checked> esqueleto</label>
-    <span class="tools">
-      <button data-tool="none" class="active">cursor</button>
-      <button data-tool="landmark">corregir</button>
-      <button data-tool="angle">ángulo</button>
-      <button data-tool="pen">dibujo</button>
-      <button id="undoBtn">undo</button>
-      <button id="clearBtn">clear frame</button>
-      <button id="saveBtn">guardar</button>
+    <span class="sep"></span>
+    <span class="tools" role="group" aria-label="herramientas">
+      <button data-tool="none" class="active" title="solo mirar">cursor</button>
+      <button data-tool="landmark" title="arrastrar un punto a su sitio">corregir</button>
+      <button data-tool="angle" title="medir un ángulo (3 clics)">ángulo</button>
+      <button data-tool="pen" title="dibujar libre">dibujo</button>
     </span>
+    <span class="grow"></span>
+    <button id="undoBtn" title="deshacer último trazo">↶ undo</button>
+    <button id="clearBtn" title="borrar anotaciones del frame">🗑 frame</button>
+    <button id="saveBtn" class="primary" title="guardar anotaciones">guardar</button>
     <span id="status"></span>
   </header>
 
@@ -27,10 +42,10 @@
   </div>
 
   <footer>
-    <button id="prevBtn">◀</button>
+    <button id="prevBtn" title="frame anterior">◀</button>
     <input type="range" id="slider" min="0" value="0">
-    <button id="nextBtn">▶</button>
-    <input type="number" id="frameInput" min="0" value="0" style="width:6em">
+    <button id="nextBtn" title="frame siguiente">▶</button>
+    <input type="number" id="frameInput" min="0" value="0" style="width:6em" title="ir a frame">
     <span id="frameLabel">0 / 0</span>
   </footer>
 

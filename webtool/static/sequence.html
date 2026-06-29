@@ -3,74 +3,99 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Surf — Secuencia del movimiento</title>
+  <title>Surf Analyzer — Secuencia</title>
   <link rel="stylesheet" href="/static/style.css">
   <style>
     html, body { height: 100%; margin: 0; }
     body { display: flex; flex-direction: column; overflow: hidden; }
-    #seqHeader { display: flex; gap: 12px; align-items: center; padding: 8px 12px;
-      background: #2a2a32; flex-wrap: wrap; flex: 0 0 auto; }
-    #seqHeader .title { font-weight: 600; }
-    #seqHeader a { color: #8ab4f8; }
+    #seqHeader { display: flex; gap: var(--sp-3); align-items: center;
+      padding: var(--sp-2) var(--sp-4); background: var(--surface);
+      border-bottom: 1px solid var(--border); flex-wrap: wrap; flex: 0 0 auto; }
+    #seqHeader .title { font-weight: 700; }
+    #seqHeader .hint { color: var(--faint); font-size: var(--fs-xs); }
     #seqHeader .spacer { margin-left: auto; }
-    #status { color: #8c8; font-size: 13px; }
+    #status { color: var(--ok); font-size: var(--fs-sm); font-weight: 600; }
 
     /* editores: 2 columnas */
-    #editors { display: flex; gap: 12px; padding: 10px 12px; flex: 0 0 auto;
-      border-bottom: 1px solid #33333f; }
+    #editors { display: flex; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4);
+      flex: 0 0 auto; border-bottom: 1px solid var(--border); }
     .vcol { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;
-      align-items: center; }
+      align-items: center; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: var(--sp-3); }
     .vctrl { display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
       justify-content: center; }
     .vcol select { max-width: 200px; }
-    .vcol .preview { background: #15151b; border: 1px solid #3a3a44; border-radius: 6px;
-      height: 200px; width: auto; }
-    .vnav { display: flex; gap: 8px; align-items: center; width: 100%;
+    .vcol .preview { background: #0b1117; border: 1px solid var(--border);
+      border-radius: var(--r-sm); height: 200px; width: auto; }
+    .vnav { display: flex; gap: var(--sp-2); align-items: center; width: 100%;
       justify-content: center; }
     .vnav .slider { flex: 1; max-width: 360px; }
-    .vnav .frameLabel { font-size: 13px; color: #aab; min-width: 70px; }
+    .vnav .frameLabel { font-size: var(--fs-sm); color: var(--muted); min-width: 70px;
+      font-variant-numeric: tabular-nums; }
+    .vnav .addBtn { background: var(--accent); color: var(--accent-ink);
+      border-color: var(--accent); }
 
-    /* infografía: 2 filas con scroll horizontal */
-    #infographic { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px 12px; }
-    .seqRow { display: flex; align-items: stretch; gap: 8px; margin-bottom: 10px; }
-    .seqRow .rowLabel { flex: 0 0 64px; align-self: center; font-weight: 600;
-      color: #cdd3df; }
-    .seqRow .cells { display: flex; gap: 8px; }
-    .cell { position: relative; background: #15151b; border: 1px solid #3a3a44;
-      border-radius: 6px; padding: 4px; display: flex; flex-direction: column;
-      align-items: center; flex: 0 0 auto; }
-    .cell.sel { border-color: #6a98e0; box-shadow: 0 0 0 2px #4a78c0 inset; }
-    .cell canvas { display: block; background: #1b1b22; border-radius: 3px; }
-    .cell .cf { font-size: 11px; color: #aab; margin-top: 2px; }
+    /* infografía: filas con scroll horizontal */
+    #infographic { flex: 1 1 auto; min-height: 0; overflow: auto; padding: var(--sp-3) var(--sp-4); }
+    .seqRow { display: flex; align-items: stretch; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+    .seqRow .rowLabel { flex: 0 0 72px; align-self: center; font-weight: 700;
+      color: var(--text); font-size: var(--fs-sm); }
+    .seqRow .cells { display: flex; gap: var(--sp-2); }
+    .cell { position: relative; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-sm); padding: 4px; display: flex; flex-direction: column;
+      align-items: center; flex: 0 0 auto; cursor: pointer;
+      transition: border-color .12s, box-shadow .12s; }
+    .cell:hover { border-color: var(--border-2); }
+    .cell.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft) inset; }
+    .cell canvas { display: block; background: #11161d; border-radius: 3px; }
+    .cell .cf { font-size: 11px; color: var(--muted); margin-top: 2px;
+      font-variant-numeric: tabular-nums; }
     .cell .rm { position: absolute; top: 2px; right: 4px; cursor: pointer;
-      color: #e88; font-size: 13px; line-height: 1; background: none; border: none; }
-    .cell .step-no { position: absolute; top: 2px; left: 5px; font-size: 11px;
-      color: #889; }
-    .cell { cursor: pointer; }
+      color: var(--danger); font-size: 13px; line-height: 1; background: none;
+      border: none; padding: 2px 4px; }
+    .cell .rm:hover { background: rgba(248,113,113,.15); border-radius: 4px; }
+    .cell .step-no { position: absolute; top: 3px; left: 6px; font-size: 11px;
+      color: var(--faint); font-weight: 600; }
     .cell .badge { position: absolute; bottom: 18px; left: 5px; font-size: 12px;
-      color: #6cf; }
+      color: var(--accent-2); }
 
     /* modal de vista previa de una escena (comentar + dibujar) */
     #modal { position: fixed; inset: 0; background: rgba(0,0,0,.72); display: none;
-      align-items: center; justify-content: center; z-index: 50; }
+      align-items: center; justify-content: center; z-index: 50;
+      backdrop-filter: blur(2px); }
     #modal.show { display: flex; }
-    .modalInner { background: #1e1e26; border: 1px solid #3a3a44; border-radius: 10px;
-      padding: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 94vh; }
+    .modalInner { background: var(--surface); border: 1px solid var(--border-2);
+      border-radius: var(--r-lg); padding: var(--sp-3); display: flex;
+      flex-direction: column; gap: var(--sp-2); max-height: 94vh;
+      box-shadow: var(--shadow-2); }
     .modalTools { display: flex; gap: 6px; align-items: center; }
-    .modalTools .modalTitle { font-weight: 600; margin-right: auto; }
+    .modalTools .modalTitle { font-weight: 700; margin-right: auto; }
     .modalStage { position: relative; align-self: center; }
     .modalStage canvas { position: absolute; top: 0; left: 0; }
-    .modalStage #mBase { position: relative; border-radius: 6px; background: #15151b; }
+    .modalStage #mBase { position: relative; border-radius: var(--r-sm); background: #0b1117; }
     #mOverlay { cursor: crosshair; }
-    #mComment { width: 100%; min-height: 64px; background: #15151b; color: #e8e8ee;
-      border: 1px solid #3a3a44; border-radius: 6px; padding: 6px; resize: vertical;
-      font: 14px system-ui, sans-serif; box-sizing: border-box; }
+    #mComment { width: 100%; min-height: 64px; background: var(--surface-2);
+      color: var(--text); border: 1px solid var(--border-2); border-radius: var(--r-sm);
+      padding: 8px; resize: vertical; font: var(--fs-md)/1.4 var(--font);
+      box-sizing: border-box; }
   </style>
 </head>
 <body>
 
+  <nav class="topnav">
+    <a class="brand" href="/"><span class="logo">🏄</span> Surf <span class="accent">Analyzer</span></a>
+    <div class="tabs">
+      <a class="tab" href="/"><span class="ic">✎</span> Etiquetar</a>
+      <a class="tab" href="/compare"><span class="ic">⇄</span> Comparar</a>
+      <a class="tab" href="/sequence" aria-current="page"><span class="ic">▦</span> Secuencia</a>
+    </div>
+    <span class="nav-spacer"></span>
+    <span class="nav-hint">storyboard de poses clave · profesor vs. alumno</span>
+  </nav>
+
   <div id="seqHeader">
     <span class="title">Secuencia del movimiento</span>
+    <span class="sep"></span>
     <label>pasos <input id="nSteps" type="number" min="2" max="20" value="6" style="width:4em"></label>
     <label>ver <select id="viewMode">
       <option value="skeleton">esqueleto</option>
@@ -78,12 +103,11 @@
       <option value="both">video + esqueleto</option>
       <option value="split">separado (esqueleto + video)</option>
     </select></label>
-    <button id="autoBtn">auto-muestrear</button>
-    <button id="saveBtn">guardar</button>
-    <button id="exportBtn">exportar PNG</button>
+    <button id="autoBtn" title="muestrear N pasos equiespaciados">auto-muestrear</button>
+    <span class="grow"></span>
+    <button id="saveBtn" class="primary">guardar</button>
+    <button id="exportBtn">⬇ exportar PNG</button>
     <span id="status"></span>
-    <span class="spacer"></span>
-    <a href="/compare">comparar</a> · <a href="/">etiquetado</a>
   </div>
 
   <div id="editors">
