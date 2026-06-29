@@ -39,6 +39,8 @@
     .pane .slider { flex: 1; min-width: 80px; }
     .pane .strideWrap { display: flex; align-items: center; gap: 4px; font-size: 13px;
       color: #aab; }
+    .pane .ffWrap { display: flex; align-items: center; gap: 4px; font-size: 13px;
+      color: #aab; }
     .pane .frameLabel { font-size: 13px; color: #aab; min-width: 64px; }
     .pane .status { font-size: 13px; color: #8c8; min-width: 60px; }
     .pane select.videoSelect { max-width: 200px; }
@@ -90,6 +92,8 @@
         <button class="nextBtn" title="frame siguiente ( →)">frame ▶</button>
         <input type="number" class="frameInput" min="0" value="0" style="width:5em">
         <span class="strideWrap">cada <input type="number" class="strideInput" min="1" value="1" style="width:3.5em"> frames</span>
+        <label class="ffWrap"><input type="checkbox" class="ffToggle"> frame a frame</label>
+        <input type="number" class="ffDelay" min="50" step="50" value="300" style="width:4em" title="ms por frame en modo frame a frame">
         <span class="frameLabel">0 / 0</span>
       </div>
     </div>
@@ -131,6 +135,8 @@
         <button class="nextBtn" title="frame siguiente ( →)">frame ▶</button>
         <input type="number" class="frameInput" min="0" value="0" style="width:5em">
         <span class="strideWrap">cada <input type="number" class="strideInput" min="1" value="1" style="width:3.5em"> frames</span>
+        <label class="ffWrap"><input type="checkbox" class="ffToggle"> frame a frame</label>
+        <input type="number" class="ffDelay" min="50" step="50" value="300" style="width:4em" title="ms por frame en modo frame a frame">
         <span class="frameLabel">0 / 0</span>
       </div>
     </div>

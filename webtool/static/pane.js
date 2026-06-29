@@ -31,6 +31,8 @@ function createPane(root) {
     tool: "none",
     stride: 1,
     playing: false,
+    frameByFrame: false,   // modo: play avanza lento, un frame a la vez
+    ffDelay: 300,          // ms por frame en modo frame-a-frame
     clips: [],          // clips guardados de este video [{name,start,end}]
     clip: null,         // clip activo (acota la navegación) o null = video completo
     markIn: null,       // marca de inicio pendiente (frame)
@@ -54,6 +56,8 @@ function createPane(root) {
     slider: $(".slider"),
     frameInput: $(".frameInput"),
     strideInput: $(".strideInput"),
+    ffToggle: $(".ffToggle"),
+    ffDelay: $(".ffDelay"),
     frameLabel: $(".frameLabel"),
     playBtn: $(".playBtn"),
     prevBtn: $(".prevBtn"),
@@ -247,7 +251,10 @@ function createPane(root) {
       const t0 = performance.now();
       await render(next);                        // espera el pintado real
       if (token !== _playToken) break;           // pausado durante la carga
-      const target = 1000 * state.stride / fps;
+      // modo frame-a-frame: pausa fija por frame; si no, ritmo de tiempo real
+      const target = state.frameByFrame
+        ? state.ffDelay
+        : 1000 * state.stride / fps;
       const elapsed = performance.now() - t0;
       if (elapsed < target) {
         await new Promise((r) => setTimeout(r, target - elapsed));
@@ -370,6 +377,13 @@ function createPane(root) {
   els.strideInput.addEventListener("change", (e) => {
     state.stride = Math.max(1, parseInt(e.target.value, 10) || 1);
     els.strideInput.value = state.stride;
+  });
+  els.ffToggle.addEventListener("change", (e) => {
+    state.frameByFrame = e.target.checked;
+  });
+  els.ffDelay.addEventListener("change", (e) => {
+    state.ffDelay = Math.max(50, parseInt(e.target.value, 10) || 300);
+    els.ffDelay.value = state.ffDelay;
   });
 
   // ── Clips: seleccionar, marcar in/out, guardar ────────────────────────────────
