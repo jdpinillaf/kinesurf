@@ -80,18 +80,46 @@ function drawSkeletonFrame(ctx, lm, W, H) {
   }
 }
 
-let viewMode = "skeleton";   // "skeleton" | "frame" | "both"
+// Las notas/dibujos son INDIVIDUALES por representación: el esqueleto (vectores) y el
+// video son cosas distintas. Clave = "<rep>:<frame>", con rep = "skeleton" o "frame"
+// (el modo "both" comparte el dibujo del video porque muestra el frame debajo).
+function repOf(mode) { return mode === "skeleton" ? "skeleton" : "frame"; }
+function noteKey(mode, f) { return repOf(mode) + ":" + f; }
+function noteFor(col, mode, f) { return col.notes ? col.notes[noteKey(mode, f)] : undefined; }
+
+// Pinta una lista de trazos normalizados (0-1) sobre ctx WxH.
+function paintStrokes(ctx, strokes, W, H) {
+  if (!strokes) return;
+  ctx.lineWidth = 3; ctx.lineCap = "round";
+  for (const s of strokes) {
+    ctx.strokeStyle = s.color || "#f33";
+    ctx.beginPath();
+    s.stroke.forEach((p, i) => {
+      const x = p[0] * W, y = p[1] * H;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+}
+
+let viewMode = "skeleton";   // "skeleton" | "frame" | "both" | "split"
 
 // Pinta una celda según el mode: "skeleton" (encuadrado), "frame", o "both" (frame+esqueleto).
 function cellPaint(canvas, col, f, mode) {
   const ctx = canvas.getContext("2d"), W = canvas.width, H = canvas.height;
   const lm = col.lm ? col.lm[f] : null;
-  if (mode === "skeleton") { drawPose(ctx, lm, W, H); return; }
+  const note = noteFor(col, mode, f);
+  if (mode === "skeleton") {
+    drawPose(ctx, lm, W, H);
+    paintStrokes(ctx, note && note.drawing, W, H);
+    return;
+  }
   ctx.clearRect(0, 0, W, H);
   const img = new Image();
   img.onload = () => {
     ctx.drawImage(img, 0, 0, W, H);
     if (mode === "both") drawSkeletonFrame(ctx, lm, W, H);
+    paintStrokes(ctx, note && note.drawing, W, H);
   };
   img.src = `/api/frame/${encodeURIComponent(col.video)}/${f}`;
 }
@@ -107,14 +135,20 @@ function cellCanvasAsync(col, f, cellH, mode) {
     col.sizeCanvas(cv, cellH);
     const ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
     const lm = col.lm ? col.lm[f] : null;
-    if (mode === "skeleton") { drawPose(ctx, lm, W, H); resolve(cv); return; }
+    const note = noteFor(col, mode, f);
+    if (mode === "skeleton") {
+      drawPose(ctx, lm, W, H);
+      paintStrokes(ctx, note && note.drawing, W, H);
+      resolve(cv); return;
+    }
     const img = new Image();
     img.onload = () => {
       ctx.drawImage(img, 0, 0, W, H);
       if (mode === "both") drawSkeletonFrame(ctx, lm, W, H);
+      paintStrokes(ctx, note && note.drawing, W, H);
       resolve(cv);
     };
-    img.onerror = () => resolve(cv);
+    img.onerror = () => { paintStrokes(ctx, note && note.drawing, W, H); resolve(cv); };
     img.src = `/api/frame/${encodeURIComponent(col.video)}/${f}`;
   });
 }
@@ -306,14 +340,14 @@ function makeCellEl(spec, i) {
   const cf = document.createElement("span");
   cf.className = "cf"; cf.textContent = `f ${f}`;
   cell.appendChild(cv); cell.appendChild(cf);
-  const note = col.notes && col.notes[f];
+  const note = noteFor(col, spec.mode, f);
   if (note && (note.comment || (note.drawing && note.drawing.length))) {
     const badge = document.createElement("span");
     badge.className = "badge"; badge.textContent = "✎";
     badge.title = note.comment || "tiene dibujo";
     cell.appendChild(badge);
   }
-  cell.addEventListener("click", () => openModal(col, f));
+  cell.addEventListener("click", () => openModal(col, f, spec.mode));
   return cell;
 }
 
@@ -419,44 +453,39 @@ const moctx = modal.overlay.getContext("2d");
 let mStroke = null;
 
 function drawModalStrokes() {
-  const W = modal.overlay.width, H = modal.overlay.height;
-  moctx.clearRect(0, 0, W, H);
-  moctx.lineWidth = 3; moctx.lineCap = "round";
-  for (const s of modal.strokes) {
-    moctx.strokeStyle = s.color || "#f33";
-    moctx.beginPath();
-    s.stroke.forEach((p, i) => {
-      const x = p[0] * W, y = p[1] * H;
-      if (i === 0) moctx.moveTo(x, y); else moctx.lineTo(x, y);
-    });
-    moctx.stroke();
-  }
+  moctx.clearRect(0, 0, modal.overlay.width, modal.overlay.height);
+  paintStrokes(moctx, modal.strokes, modal.overlay.width, modal.overlay.height);
 }
 
-function openModal(col, f) {
+// Abre el modal mostrando la MISMA representación de la celda clickeada (esqueleto o
+// video) y editando el dibujo de ESA representación.
+function openModal(col, f, mode) {
   if (!col.meta) return;
-  modal.col = col; modal.f = f;
-  const note = (col.notes && col.notes[f]) || {};
+  modal.col = col; modal.f = f; modal.mode = mode;
+  const note = noteFor(col, mode, f) || {};
   // copia profunda de los trazos para editar sin tocar lo guardado hasta "guardar"
   modal.strokes = note.drawing ? JSON.parse(JSON.stringify(note.drawing)) : [];
   modal.comment.value = note.comment || "";
-  modal.title.textContent = `${col.video} — frame ${f}`;
+  modal.title.textContent =
+    `${col.video} — frame ${f} · ${repOf(mode) === "skeleton" ? "esqueleto" : "video"}`;
   const aspect = col.meta.width / col.meta.height;
   const H = Math.min(560, Math.round(window.innerHeight * 0.6));
   const W = Math.round(H * aspect);
   for (const cv of [modal.base, modal.overlay]) { cv.width = W; cv.height = H; }
   modal.base.parentElement.style.width = W + "px";
   modal.base.parentElement.style.height = H + "px";
-  // base: frame real + esqueleto en coords de frame
-  mbctx.clearRect(0, 0, W, H);
   const lm = col.lm ? col.lm[f] : null;
-  const img = new Image();
-  img.onload = () => {
-    mbctx.drawImage(img, 0, 0, W, H);
-    drawSkeletonFrame(mbctx, lm, W, H);
-  };
-  img.onerror = () => drawSkeletonFrame(mbctx, lm, W, H);
-  img.src = `/api/frame/${encodeURIComponent(col.video)}/${f}`;
+  mbctx.clearRect(0, 0, W, H);
+  if (mode === "skeleton") {
+    drawPose(mbctx, lm, W, H);   // vectores encuadrados, igual que la celda
+  } else {
+    const img = new Image();
+    img.onload = () => {
+      mbctx.drawImage(img, 0, 0, W, H);
+      if (mode === "both") drawSkeletonFrame(mbctx, lm, W, H);
+    };
+    img.src = `/api/frame/${encodeURIComponent(col.video)}/${f}`;
+  }
   drawModalStrokes();
   modal.el.classList.add("show");
 }
@@ -497,10 +526,11 @@ modal.el.addEventListener("click", (e) => { if (e.target === modal.el) closeModa
 document.getElementById("mSave").addEventListener("click", async () => {
   const col = modal.col; if (!col) return;
   const comment = modal.comment.value.trim();
+  const key = noteKey(modal.mode, modal.f);
   if (comment || modal.strokes.length) {
-    col.notes[modal.f] = { comment, drawing: modal.strokes };
+    col.notes[key] = { comment, drawing: modal.strokes };
   } else {
-    delete col.notes[modal.f];   // vacío: no guardar nota
+    delete col.notes[key];   // vacío: no guardar nota
   }
   const ok = await col.save();
   els.status.textContent = ok ? "guardado ✓" : "error";
