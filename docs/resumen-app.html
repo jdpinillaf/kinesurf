@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surf Pop-Up Analyzer — Estado del proyecto</title>
+<style>
+  :root{
+    --bg:#14141a; --panel:#1d1d25; --panel2:#262630; --line:#33333f;
+    --txt:#e8e8ee; --dim:#9a9aa8; --accent:#4a90d9; --green:#46c46e;
+    --amber:#e0a64a; --gray:#6a6a78; --red:#e06a6a; --purple:#9a7ee0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}
+  .wrap{max-width:1020px;margin:0 auto;padding:32px 20px 80px}
+  h1{font-size:28px;margin:0 0 4px}
+  h2{font-size:20px;margin:40px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:13px;margin:22px 0 8px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+  .sub{color:var(--dim);margin:0 0 8px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 20px;margin:14px 0}
+  table{width:100%;border-collapse:collapse;margin:8px 0}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  td code,code.inline{background:var(--panel2);padding:1px 6px;border-radius:4px;font-size:13px;color:#cfe3ff}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
+  .ok{background:rgba(70,196,110,.16);color:var(--green)}
+  .wip{background:rgba(224,166,74,.16);color:var(--amber)}
+  .todo{background:rgba(120,120,135,.18);color:var(--gray)}
+  .new{background:rgba(154,126,224,.18);color:var(--purple)}
+  .metric{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+  .card{flex:1;min-width:120px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .card .big{font-size:22px;font-weight:700}
+  .card .lbl{color:var(--dim);font-size:12px}
+  .bar{height:8px;background:var(--panel2);border-radius:6px;overflow:hidden;margin:6px 0 2px}
+  .bar > span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--green))}
+  ul{margin:6px 0 6px 18px;padding:0}
+  li{margin:3px 0}
+  .muted{color:var(--dim);font-size:13px}
+  .tree{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--panel2);
+    border:1px solid var(--line);border-radius:8px;padding:14px 16px;white-space:pre;overflow-x:auto;color:#cdd3df}
+  .foot{margin-top:40px;color:var(--dim);font-size:12px;text-align:center}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:680px){.grid2{grid-template-columns:1fr}}
+  .commit{font:12px/1.7 ui-monospace,Menlo,monospace;color:#c8d0dc}
+  .commit .feat{color:var(--green)} .commit .fix{color:var(--amber)}
+  .badge{display:inline-block;background:rgba(70,196,110,.16);color:var(--green);
+    padding:3px 12px;border-radius:6px;font-size:13px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>🏄 Surf Pop-Up Analyzer</h1>
+  <p class="sub">Estado del proyecto · branch <code class="inline">feat/webtool-etiquetado</code> · <span class="badge">motor visual web COMPLETO · listo para merge</span></p>
+
+  <div class="panel">
+    Dos piezas en el repo:
+    <ul>
+      <li><b>Fase 0 — Notebook de validación</b>: decide con datos si la pose estimation da métricas biomecánicas útiles del pop-up en tierra. <span class="pill wip">en curso</span></li>
+      <li><b>Motor visual de etiquetado (web)</b>: herramienta Flask + canvas para inspeccionar frame a frame, corregir landmarks y anotar. Apoya el tuning de la Fase 0. <span class="pill ok">v1 completo</span></li>
+    </ul>
+  </div>
+
+  <div class="metric">
+    <div class="card"><div class="big">20</div><div class="lbl">commits en la branch</div></div>
+    <div class="card"><div class="big">11 / 11</div><div class="lbl">tasks webtool</div></div>
+    <div class="card"><div class="big">10 / 10</div><div class="lbl">tests verdes</div></div>
+    <div class="card"><div class="big">~710</div><div class="lbl">líneas (webtool)</div></div>
+    <div class="card"><div class="big">3 / 6</div><div class="lbl">módulos Fase 0</div></div>
+  </div>
+
+  <!-- ============ MOTOR VISUAL — LO NUEVO ============ -->
+  <h2>1 · Motor visual de etiquetado (web) <span class="pill new">NUEVO · completo</span></h2>
+  <p class="sub">Subir/elegir video → navegar frame a frame → ver el esqueleto MediaPipe → corregir landmarks, medir ángulos, dibujar → guardar a JSON.
+    Stack: Flask + HTML/JS vanilla + <code class="inline">&lt;canvas&gt;</code>. Sin React, sin build, sin DB.</p>
+
+  <h3>Features existentes</h3>
+  <table>
+    <tr><th>Feature</th><th>Detalle</th></tr>
+    <tr><td><b>Navegación frame-a-frame</b></td><td>◀ ▶, slider, input de nº de frame, flechas del teclado. Frame-exacto (JPEG servido on-demand).</td></tr>
+    <tr><td><b>Overlay de esqueleto</b></td><td>33 landmarks MediaPipe dibujados encima, toggle on/off. Sigue el movimiento al avanzar.</td></tr>
+    <tr><td><b>Corregir landmark</b> 🖐</td><td>Arrastrar un punto mal detectado a su lugar. Se guarda como corrección por frame.</td></tr>
+    <tr><td><b>Ángulo manual</b> 📐</td><td>Click 3 puntos → grados (mismo <code>arccos</code> que las métricas Python). Para comparar contra el cálculo automático.</td></tr>
+    <tr><td><b>Dibujo libre</b> ✏️</td><td>Trazos tipo telestrator de coach, por frame. Con undo y clear-frame.</td></tr>
+    <tr><td><b>Guardar / cargar</b> 💾</td><td>Persiste todas las anotaciones a <code>data/output/&lt;video&gt;_annotations.json</code>; al reabrir el video se rehidratan.</td></tr>
+  </table>
+
+  <h3>Endpoints (backend Flask)</h3>
+  <table>
+    <tr><th>Ruta</th><th>Hace</th></tr>
+    <tr><td><code>GET /api/videos</code></td><td>Lista videos en <code>data/raw/</code></td></tr>
+    <tr><td><code>GET /api/meta/&lt;v&gt;</code></td><td>fps, n_frames, width, height, has_landmarks (404 si falta/corrupto)</td></tr>
+    <tr><td><code>GET /api/frame/&lt;v&gt;/&lt;n&gt;</code></td><td>JPEG del frame n — orientación-auto iPhone, cache LRU, clamp, retry .MOV</td></tr>
+    <tr><td><code>GET /api/landmarks/&lt;v&gt;</code></td><td>Landmarks <code>[n,33,4]</code> como JSON, NaN→null, coords 0-1</td></tr>
+    <tr><td><code>GET/POST /api/annotations/&lt;v&gt;</code></td><td>Carga / persiste anotaciones (rechaza body malformado con 400)</td></tr>
+  </table>
+
+  <h3>Cómo correrlo</h3>
+  <div class="tree">./venv/bin/python -m webtool.server     # http://127.0.0.1:5000</div>
+
+  <h3>Estructura del motor visual</h3>
+  <div class="tree">webtool/
+├── server.py        Flask: videos · meta · frame · landmarks · annotations
+├── frames.py        FrameReader — JPEG on-demand, cache LRU, orientación-auto
+├── static/
+│   ├── index.html   UI: selector, doble canvas, toolbar, navegación
+│   ├── app.js       estado, navegación, overlay, 3 herramientas, guardar
+│   └── style.css    tema oscuro
+└── smoke_test.md    flujo de QA (validado con puppeteer)</div>
+
+  <h3>Calidad / decisiones de diseño</h3>
+  <ul>
+    <li>Coords normalizadas 0-1 en todo (independiente de resolución).</li>
+    <li>Frame-stepping frame-exacto vía servido JPEG on-demand (no <code>&lt;video&gt;</code> HTML5 que busca por tiempo).</li>
+    <li>Anti-race: guard de secuencia descarta paints de frames viejos en navegación rápida.</li>
+    <li>iPhone .MOV: orientación-auto + retry de frame + conteo de frames clampeado a los landmarks reales (el contenedor sobre-reporta).</li>
+    <li>11 tasks, cada una con review independiente (spec + calidad) + review final de toda la branch.</li>
+  </ul>
+
+  <!-- ============ CHANGELOG ============ -->
+  <h2>2 · Cambios hechos (20 commits)</h2>
+  <div class="panel">
+    <div class="grid2">
+      <div class="commit">
+        <span class="feat">feat</span> scaffold Flask + GET /api/videos<br>
+        <span class="feat">feat</span> GET /api/meta/&lt;video&gt;<br>
+        <span class="fix">fix</span> guard read_meta + 404 video corrupto<br>
+        <span class="feat">feat</span> frame serving on-demand + cache LRU<br>
+        <span class="fix">fix</span> log retry + cache key + move_to_end<br>
+        <span class="feat">feat</span> GET /api/landmarks/&lt;video&gt;<br>
+        <span class="fix">fix</span> NaN→null explícito + test<br>
+        <span class="feat">feat</span> GET/POST /api/annotations/&lt;video&gt;<br>
+        <span class="fix">fix</span> rechazar POST malformado (400)<br>
+        <span class="feat">feat</span> frontend shell + navegación
+      </div>
+      <div class="commit">
+        <span class="fix">fix</span> await paint + drop stale frames + errores<br>
+        <span class="feat">feat</span> overlay esqueleto MediaPipe + toggle<br>
+        <span class="feat">feat</span> herramienta corregir-landmark (drag)<br>
+        <span class="feat">feat</span> herramienta ángulo manual (3 clicks)<br>
+        <span class="fix">fix</span> limpiar clicks de ángulo pendientes<br>
+        <span class="feat">feat</span> dibujo libre + undo + clear<br>
+        <span class="fix">fix</span> guard undo/clear vs angles undefined<br>
+        <span class="feat">feat</span> guardar/cargar + smoke test<br>
+        <span class="fix">fix</span> save handler try/catch + guard<br>
+        <span class="fix">fix</span> clamp frame count a landmarks (.MOV)
+      </div>
+    </div>
+  </div>
+  <p class="muted">Review final (modelo más capaz): <b>Ready to merge</b> — contrato frontend/backend consistente, normalización de coords correcta en ambos sentidos, sin bugs de corrupción de datos ni de frame equivocado.</p>
+
+  <!-- ============ FASE 0 ============ -->
+  <h2>3 · Fase 0 — Pipeline de validación <span class="pill wip">en curso</span></h2>
+
+  <h3>Módulos (src/)</h3>
+  <table>
+    <tr><th>Módulo</th><th>Qué hace</th><th>Estado</th></tr>
+    <tr><td><code>pose.py</code></td><td>Extrae 33 landmarks/frame (MediaPipe). Fix rotación iPhone .MOV.</td><td><span class="pill ok">listo</span></td></tr>
+    <tr><td><code>smoothing.py</code></td><td>Savitzky-Golay (window=11, poly=3) con interpolación de NaN.</td><td><span class="pill ok">listo</span></td></tr>
+    <tr><td><code>phases.py</code></td><td>Máquina de estados prono→push→transición→stance. Stance con gate relativo.</td><td><span class="pill ok">listo + validado</span></td></tr>
+    <tr><td><code>metrics.py</code></td><td>Las 6 métricas biomecánicas sobre el stance.</td><td><span class="pill todo">pendiente</span></td></tr>
+    <tr><td><code>render.py</code></td><td>Video anotado (esqueleto + ángulos + fase) — demo del coach.</td><td><span class="pill todo">pendiente</span></td></tr>
+    <tr><td><code>report.py</code></td><td>Export CSV + gráfico de timeline.</td><td><span class="pill todo">pendiente</span></td></tr>
+  </table>
+
+  <h3>Validación de fases sobre videos reales</h3>
+  <table>
+    <tr><th>Video</th><th>fps</th><th>Confianza</th><th>Detectado</th><th>Pop-up</th><th>Rodilla@stance</th></tr>
+    <tr><td>PopUpLateral.mov</td><td>29</td><td>100%</td><td><span class="pill ok">sí</span></td><td>0.724 s</td><td>129° (erguido)</td></tr>
+    <tr><td>PopUp.mov</td><td>28</td><td>94%</td><td><span class="pill ok">sí</span></td><td>0.641 s</td><td>100° (squat)</td></tr>
+    <tr><td>IMG_9099.MOV</td><td>30</td><td>48%</td><td><span class="pill todo">descartado</span></td><td>—</td><td>conf &lt; 70%</td></tr>
+  </table>
+  <p class="muted">Rodilla@stance <b>129° vs 100°</b> → la métrica de flexión ya separa estilos visiblemente (buen indicio para el criterio de éxito). Se arreglaron 2 bugs de detección de fases al revisar con los 3 videos (stance relativo + colapso push/transición).</p>
+
+  <!-- ============ PRÓXIMO ============ -->
+  <h2>4 · Qué sigue</h2>
+  <div class="panel">
+    <b>Branch actual:</b> decidir merge a <code class="inline">master</code> / PR / mantener.<br>
+    <b>Motor visual (follow-ups, fuera de v1):</b> aplicar las correcciones de landmarks de vuelta a <code>metrics.py</code>/<code>phases.py</code> para re-correr sobre datos corregidos; etiquetado de límites de fase.<br>
+    <b>Fase 0 (en pausa):</b> <code>metrics.py</code> (6 métricas) → <code>render.py</code> (video demo) → <code>report.py</code> (CSV + timeline) → notebook end-to-end.
+  </div>
+
+  <p class="foot">Snapshot del estado actual · Surf Pop-Up Analyzer · Fase 0 de validación + motor visual de etiquetado v1</p>
+
+</div>
+</body>
+</html>
