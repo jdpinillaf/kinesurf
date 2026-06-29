@@ -235,7 +235,7 @@ function createPane(root) {
   async function play(propagate = true) {
     if (state.playing || !state.meta) return;
     state.playing = true;
-    els.playBtn.textContent = "⏸";
+    els.playBtn.textContent = "⏸ pausa";
     if (propagate) emit("play", []);
     const token = ++_playToken;
     const [lo, hi] = bounds();
@@ -257,7 +257,7 @@ function createPane(root) {
   function pause(propagate = true) {
     _playToken++;              // cancela el loop en curso
     state.playing = false;
-    els.playBtn.textContent = "▶";
+    els.playBtn.textContent = "▶ play";
     if (propagate) emit("pause", []);
   }
   function togglePlay() {
