@@ -59,11 +59,13 @@ async function selectVideo(video) {
     state.annotations.corrections = state.annotations.corrections || {};
     state.annotations.angles = state.annotations.angles || [];
     state.annotations.drawings = state.annotations.drawings || {};
-    // Dimensionar ambos canvas al tamaño real del frame.
+    // Buffer de los canvas = resolución real del frame (dibujo nítido).
+    // El tamaño en pantalla lo ajusta fitStage() vía CSS sobre .frame.
     for (const c of [base, overlay]) {
       c.width = state.meta.width;
       c.height = state.meta.height;
     }
+    fitStage();
     els.slider.max = state.meta.n_frames - 1;
     els.frameInput.max = state.meta.n_frames - 1;
     await showFrame(0);
@@ -71,6 +73,23 @@ async function selectVideo(video) {
     els.status.textContent = "error cargando: " + err.message;
   }
 }
+
+// Ajusta el tamaño en pantalla de .frame para que el video quepa dentro de
+// #stage (math de "contain"), conservando la proporción. El buffer de los
+// canvas queda en resolución nativa; evtPos ya corrige por la escala.
+const stageEl = document.getElementById("stage");
+const frameEl = document.querySelector("#stage .frame");
+function fitStage() {
+  if (!state.meta || !frameEl) return;
+  const aw = stageEl.clientWidth, ah = stageEl.clientHeight;
+  if (aw <= 0 || ah <= 0) return;
+  const vr = state.meta.width / state.meta.height;
+  let w = aw, h = w / vr;
+  if (h > ah) { h = ah; w = h * vr; }
+  frameEl.style.width = w + "px";
+  frameEl.style.height = h + "px";
+}
+window.addEventListener("resize", fitStage);
 
 let _frameSeq = 0;   // discards stale async frame loads (rapid nav)
 

@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Surf Analyzer — Etiquetado</title>
   <link rel="stylesheet" href="/static/style.css">
+  <style>
+    /* el video debe caber en pantalla: columna que ocupa 100vh */
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; flex-direction: column; overflow: hidden; }
+    header, footer { flex: 0 0 auto; }
+  </style>
 </head>
 <body>
 
@@ -37,8 +43,10 @@
   </header>
 
   <div id="stage">
-    <canvas id="base"></canvas>
-    <canvas id="overlay"></canvas>
+    <div class="frame">
+      <canvas id="base"></canvas>
+      <canvas id="overlay"></canvas>
+    </div>
   </div>
 
   <footer>
