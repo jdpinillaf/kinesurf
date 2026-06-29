@@ -104,10 +104,12 @@ def create_app() -> Flask:
     @app.get("/api/frame/<video>/<int:n>")
     def api_frame(video: str, n: int):
         path = video_path(video)
-        # rápido: servir el frame pre-renderizado a disco si existe
+        # rápido: servir el frame pre-renderizado a disco si existe.
+        # send_file necesita path ABSOLUTO: con uno relativo Flask lo resuelve
+        # contra webtool/ (root_path), no contra el CWD → FileNotFoundError/500.
         pr = prerendered_frame_path(video, n)
         if os.path.isfile(pr):
-            return send_file(pr, mimetype="image/jpeg")
+            return send_file(os.path.abspath(pr), mimetype="image/jpeg")
         # fallback: decodificar on-demand (videos sin pre-render)
         jpeg = reader.get_jpeg(path, n)
         return Response(jpeg, mimetype="image/jpeg")
