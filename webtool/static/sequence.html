@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Surf — Secuencia del movimiento</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; flex-direction: column; overflow: hidden; }
+    #seqHeader { display: flex; gap: 12px; align-items: center; padding: 8px 12px;
+      background: #2a2a32; flex-wrap: wrap; flex: 0 0 auto; }
+    #seqHeader .title { font-weight: 600; }
+    #seqHeader a { color: #8ab4f8; }
+    #seqHeader .spacer { margin-left: auto; }
+    #status { color: #8c8; font-size: 13px; }
+
+    /* editores: 2 columnas */
+    #editors { display: flex; gap: 12px; padding: 10px 12px; flex: 0 0 auto;
+      border-bottom: 1px solid #33333f; }
+    .vcol { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;
+      align-items: center; }
+    .vctrl { display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+      justify-content: center; }
+    .vcol select { max-width: 200px; }
+    .vcol .preview { background: #15151b; border: 1px solid #3a3a44; border-radius: 6px;
+      height: 200px; width: auto; }
+    .vnav { display: flex; gap: 8px; align-items: center; width: 100%;
+      justify-content: center; }
+    .vnav .slider { flex: 1; max-width: 360px; }
+    .vnav .frameLabel { font-size: 13px; color: #aab; min-width: 70px; }
+
+    /* infografía: 2 filas con scroll horizontal */
+    #infographic { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px 12px; }
+    .seqRow { display: flex; align-items: stretch; gap: 8px; margin-bottom: 10px; }
+    .seqRow .rowLabel { flex: 0 0 64px; align-self: center; font-weight: 600;
+      color: #cdd3df; }
+    .seqRow .cells { display: flex; gap: 8px; }
+    .cell { position: relative; background: #15151b; border: 1px solid #3a3a44;
+      border-radius: 6px; padding: 4px; display: flex; flex-direction: column;
+      align-items: center; flex: 0 0 auto; }
+    .cell.sel { border-color: #6a98e0; box-shadow: 0 0 0 2px #4a78c0 inset; }
+    .cell canvas { display: block; background: #1b1b22; border-radius: 3px; }
+    .cell .cf { font-size: 11px; color: #aab; margin-top: 2px; }
+    .cell .rm { position: absolute; top: 2px; right: 4px; cursor: pointer;
+      color: #e88; font-size: 13px; line-height: 1; background: none; border: none; }
+    .cell .step-no { position: absolute; top: 2px; left: 5px; font-size: 11px;
+      color: #889; }
+  </style>
+</head>
+<body>
+
+  <div id="seqHeader">
+    <span class="title">Secuencia del movimiento</span>
+    <label>pasos <input id="nSteps" type="number" min="2" max="20" value="6" style="width:4em"></label>
+    <button id="autoBtn">auto-muestrear</button>
+    <button id="saveBtn">guardar</button>
+    <span id="status"></span>
+    <span class="spacer"></span>
+    <a href="/compare">comparar</a> · <a href="/">etiquetado</a>
+  </div>
+
+  <div id="editors">
+    <div class="vcol" id="colA">
+      <div class="vctrl">
+        <select class="videoSelect"></select>
+        <select class="clipSelect"><option value="">video completo</option></select>
+      </div>
+      <canvas class="preview"></canvas>
+      <div class="vnav">
+        <input type="range" class="slider" min="0" value="0">
+        <span class="frameLabel">0 / 0</span>
+        <button class="addBtn">+ paso</button>
+      </div>
+    </div>
+    <div class="vcol" id="colB">
+      <div class="vctrl">
+        <select class="videoSelect"></select>
+        <select class="clipSelect"><option value="">video completo</option></select>
+      </div>
+      <canvas class="preview"></canvas>
+      <div class="vnav">
+        <input type="range" class="slider" min="0" value="0">
+        <span class="frameLabel">0 / 0</span>
+        <button class="addBtn">+ paso</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="infographic">
+    <div class="seqRow" id="rowA">
+      <div class="rowLabel">profe</div>
+      <div class="cells"></div>
+    </div>
+    <div class="seqRow" id="rowB">
+      <div class="rowLabel">alumno</div>
+      <div class="cells"></div>
+    </div>
+  </div>
+
+  <script src="/static/sequence.js"></script>
+</body>
+</html>

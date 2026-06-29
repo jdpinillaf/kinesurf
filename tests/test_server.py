@@ -110,3 +110,20 @@ def test_annotations_post_rejects_malformed_body(client, tmp_path, monkeypatch):
     # a JSON array (not an object) must be rejected
     resp = client.post("/api/annotations/PopUpLateral.mov", json=[1, 2, 3])
     assert resp.status_code == 400
+
+
+def test_sequence_roundtrip(client, tmp_path, monkeypatch):
+    import webtool.server as srv
+    monkeypatch.setattr(srv, "OUTPUT_DIR", str(tmp_path))
+    post = client.post("/api/sequence/PopUpLateral.mov",
+                       json={"video": "PopUpLateral.mov", "steps": [10, 50, 120]})
+    assert post.status_code == 200
+    got = client.get("/api/sequence/PopUpLateral.mov").get_json()
+    assert got["steps"] == [10, 50, 120]
+
+
+def test_sequence_empty_default(client, tmp_path, monkeypatch):
+    import webtool.server as srv
+    monkeypatch.setattr(srv, "OUTPUT_DIR", str(tmp_path))
+    got = client.get("/api/sequence/PopUpLateral.mov").get_json()
+    assert got["steps"] == []

@@ -60,6 +60,11 @@ def prerendered_frame_path(video: str, n: int) -> str:
     return os.path.join(OUTPUT_DIR, "frames", stem, f"{n}.jpg")
 
 
+def sequence_path(video: str) -> str:
+    stem = os.path.splitext(video)[0]
+    return os.path.join(OUTPUT_DIR, f"{stem}_sequence.json")
+
+
 def load_or_extract_landmarks(video: str) -> np.ndarray:
     npy = landmarks_npy_path(video)
     if os.path.isfile(npy):
@@ -122,6 +127,10 @@ def create_app() -> Flask:
     def compare():
         return send_from_directory(STATIC_DIR, "compare.html")
 
+    @app.get("/sequence")
+    def sequence():
+        return send_from_directory(STATIC_DIR, "sequence.html")
+
     @app.get("/static/<path:filename>")
     def static_files(filename: str):
         return send_from_directory(STATIC_DIR, filename)
@@ -183,6 +192,26 @@ def create_app() -> Flask:
             abort(400)
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         with open(clips_path(video), "w") as f:
+            json.dump(data, f, indent=2)
+        return jsonify(ok=True)
+
+    @app.get("/api/sequence/<video>")
+    def api_get_sequence(video: str):
+        video_path(video)  # 404 si no existe el video
+        path = sequence_path(video)
+        if os.path.isfile(path):
+            with open(path) as f:
+                return jsonify(json.load(f))
+        return jsonify(video=video, steps=[])
+
+    @app.post("/api/sequence/<video>")
+    def api_post_sequence(video: str):
+        video_path(video)
+        data = request.get_json(force=True, silent=True)
+        if not isinstance(data, dict):
+            abort(400)
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        with open(sequence_path(video), "w") as f:
             json.dump(data, f, indent=2)
         return jsonify(ok=True)
 
