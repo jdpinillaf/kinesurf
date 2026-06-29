@@ -5,7 +5,12 @@ const state = {
   meta: null,        // {fps, n_frames, width, height, has_landmarks}
   landmarks: null,
   annotations: null,
+  stride: 1,         // avanza N frames por paso / por tick de play
+  playing: false,
+  frameByFrame: false,  // play avanza lento, 1 frame a la vez
+  ffDelay: 300,      // ms por frame en modo frame-a-frame
 };
+let _playToken = 0;  // cancela el loop de play en curso (pausa / nuevo play)
 
 const base = document.getElementById("base");
 const overlay = document.getElementById("overlay");
@@ -17,8 +22,12 @@ const els = {
   slider: document.getElementById("slider"),
   frameInput: document.getElementById("frameInput"),
   frameLabel: document.getElementById("frameLabel"),
+  playBtn: document.getElementById("playBtn"),
   prevBtn: document.getElementById("prevBtn"),
   nextBtn: document.getElementById("nextBtn"),
+  strideInput: document.getElementById("strideInput"),
+  ffToggle: document.getElementById("ffToggle"),
+  ffDelay: document.getElementById("ffDelay"),
   status: document.getElementById("status"),
 };
 
@@ -39,6 +48,7 @@ async function loadVideos() {
 }
 
 async function selectVideo(video) {
+  if (state.playing) pause();   // cortar loop antes de cambiar de video
   try {
     state.video = video;
     const r = await fetch(`/api/meta/${encodeURIComponent(video)}`);
@@ -159,15 +169,60 @@ function redrawOverlay() {
 document.getElementById("skeletonToggle")
   .addEventListener("change", redrawOverlay);
 
+// avanza/retrocede `stride` frames (pausa el play si está corriendo manualmente)
+function step(dir) { showFrame(state.frame + dir * state.stride); }
+
+// ── Play / pausa ──────────────────────────────────────────────────────────────
+// Loop auto-agendado que ESPERA a que cada frame se pinte antes del siguiente.
+// Con setInterval, si el JPEG tarda más que el intervalo el guard anti-stale
+// descarta repintados y la imagen se ve congelada. Al await-ear showFrame() cada
+// frame se pinta sí o sí; el ritmo se auto-ajusta (a lo sumo tiempo real).
+async function play() {
+  if (state.playing || !state.meta) return;
+  state.playing = true;
+  els.playBtn.textContent = "⏸ pausa";
+  const token = ++_playToken;
+  const hi = state.meta.n_frames - 1;
+  const fps = state.meta.fps || 30;
+  if (state.frame >= hi) await showFrame(0);   // reiniciar al inicio
+  while (state.playing && token === _playToken) {
+    const next = state.frame + state.stride;
+    if (next > hi) { pause(); break; }
+    const t0 = performance.now();
+    await showFrame(next);                       // espera el pintado real
+    if (token !== _playToken) break;             // pausado durante la carga
+    const target = state.frameByFrame ? state.ffDelay : 1000 * state.stride / fps;
+    const elapsed = performance.now() - t0;
+    if (elapsed < target) await new Promise((r) => setTimeout(r, target - elapsed));
+  }
+}
+function pause() {
+  _playToken++;                  // cancela el loop en curso
+  state.playing = false;
+  els.playBtn.textContent = "▶ play";
+}
+function togglePlay() { state.playing ? pause() : play(); }
+
 els.videoSelect.addEventListener("change", (e) => selectVideo(e.target.value));
-els.prevBtn.addEventListener("click", () => showFrame(state.frame - 1));
-els.nextBtn.addEventListener("click", () => showFrame(state.frame + 1));
+els.playBtn.addEventListener("click", togglePlay);
+els.prevBtn.addEventListener("click", () => step(-1));
+els.nextBtn.addEventListener("click", () => step(1));
 els.slider.addEventListener("input", (e) => showFrame(+e.target.value));
 els.frameInput.addEventListener("change", (e) => showFrame(+e.target.value));
+els.strideInput.addEventListener("change", (e) => {
+  state.stride = Math.max(1, parseInt(e.target.value, 10) || 1);
+  els.strideInput.value = state.stride;
+});
+els.ffToggle.addEventListener("change", (e) => { state.frameByFrame = e.target.checked; });
+els.ffDelay.addEventListener("change", (e) => {
+  state.ffDelay = Math.max(50, parseInt(e.target.value, 10) || 300);
+  els.ffDelay.value = state.ffDelay;
+});
 document.addEventListener("keydown", (e) => {
   if (e.target.tagName === "INPUT") return;
-  if (e.key === "ArrowLeft") showFrame(state.frame - 1);
-  if (e.key === "ArrowRight") showFrame(state.frame + 1);
+  if (e.key === "ArrowLeft") step(-1);
+  if (e.key === "ArrowRight") step(1);
+  if (e.key === " ") { e.preventDefault(); togglePlay(); }
 });
 
 // ── Herramienta activa ────────────────────────────────────────────────────────
