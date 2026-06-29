@@ -6,6 +6,7 @@ y cachea los últimos frames codificados a JPEG para que la navegación ◀▶ s
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from collections import OrderedDict
 
@@ -13,6 +14,36 @@ import cv2
 
 CACHE_SIZE = 64
 JPEG_QUALITY = 85
+
+
+def prerender(video_path: str, out_dir: str, max_height: int = 720,
+              quality: int = 80) -> int:
+    """Decodifica el video SECUENCIALMENTE (sin seeks) y guarda cada frame como
+    JPEG downscaleado en out_dir/<n>.jpg. Servir luego un frame = leer un archivito
+    (~ms) en vez de seek+decode HEVC+encode en vivo (~300ms en 1080x1920).
+
+    Devuelve la cantidad de frames escritos. Idempotente: re-escribe.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    cap = cv2.VideoCapture(video_path)
+    cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1)
+    n = 0
+    try:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            h, w = frame.shape[:2]
+            if h > max_height:
+                scale = max_height / h
+                frame = cv2.resize(frame, (round(w * scale), max_height),
+                                   interpolation=cv2.INTER_AREA)
+            cv2.imwrite(os.path.join(out_dir, f"{n}.jpg"), frame,
+                        [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+            n += 1
+    finally:
+        cap.release()
+    return n
 
 
 class FrameReader:

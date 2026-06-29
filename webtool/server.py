@@ -11,7 +11,8 @@ import os
 
 import cv2
 import numpy as np
-from flask import Flask, Response, abort, jsonify, request, send_from_directory
+from flask import (Flask, Response, abort, jsonify, request, send_file,
+                   send_from_directory)
 from webtool.frames import FrameReader
 from src import pose
 
@@ -52,6 +53,11 @@ def annotations_path(video: str) -> str:
 def clips_path(video: str) -> str:
     stem = os.path.splitext(video)[0]
     return os.path.join(OUTPUT_DIR, f"{stem}_clips.json")
+
+
+def prerendered_frame_path(video: str, n: int) -> str:
+    stem = os.path.splitext(video)[0]
+    return os.path.join(OUTPUT_DIR, "frames", stem, f"{n}.jpg")
 
 
 def load_or_extract_landmarks(video: str) -> np.ndarray:
@@ -98,6 +104,11 @@ def create_app() -> Flask:
     @app.get("/api/frame/<video>/<int:n>")
     def api_frame(video: str, n: int):
         path = video_path(video)
+        # rápido: servir el frame pre-renderizado a disco si existe
+        pr = prerendered_frame_path(video, n)
+        if os.path.isfile(pr):
+            return send_file(pr, mimetype="image/jpeg")
+        # fallback: decodificar on-demand (videos sin pre-render)
         jpeg = reader.get_jpeg(path, n)
         return Response(jpeg, mimetype="image/jpeg")
 
