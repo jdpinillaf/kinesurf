@@ -46,6 +46,25 @@
       color: #e88; font-size: 13px; line-height: 1; background: none; border: none; }
     .cell .step-no { position: absolute; top: 2px; left: 5px; font-size: 11px;
       color: #889; }
+    .cell { cursor: pointer; }
+    .cell .badge { position: absolute; bottom: 18px; left: 5px; font-size: 12px;
+      color: #6cf; }
+
+    /* modal de vista previa de una escena (comentar + dibujar) */
+    #modal { position: fixed; inset: 0; background: rgba(0,0,0,.72); display: none;
+      align-items: center; justify-content: center; z-index: 50; }
+    #modal.show { display: flex; }
+    .modalInner { background: #1e1e26; border: 1px solid #3a3a44; border-radius: 10px;
+      padding: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 94vh; }
+    .modalTools { display: flex; gap: 6px; align-items: center; }
+    .modalTools .modalTitle { font-weight: 600; margin-right: auto; }
+    .modalStage { position: relative; align-self: center; }
+    .modalStage canvas { position: absolute; top: 0; left: 0; }
+    .modalStage #mBase { position: relative; border-radius: 6px; background: #15151b; }
+    #mOverlay { cursor: crosshair; }
+    #mComment { width: 100%; min-height: 64px; background: #15151b; color: #e8e8ee;
+      border: 1px solid #3a3a44; border-radius: 6px; padding: 6px; resize: vertical;
+      font: 14px system-ui, sans-serif; box-sizing: border-box; }
   </style>
 </head>
 <body>
@@ -96,6 +115,24 @@
 
   <!-- las filas se generan dinámicamente según el modo "ver" (sequence.js) -->
   <div id="infographic"></div>
+
+  <!-- modal: vista previa de una escena para comentar y dibujar -->
+  <div id="modal">
+    <div class="modalInner">
+      <div class="modalTools">
+        <span class="modalTitle" id="mTitle"></span>
+        <button id="mUndo">undo</button>
+        <button id="mClear">limpiar</button>
+        <button id="mSave">guardar</button>
+        <button id="mClose">cerrar ✕</button>
+      </div>
+      <div class="modalStage">
+        <canvas id="mBase"></canvas>
+        <canvas id="mOverlay"></canvas>
+      </div>
+      <textarea id="mComment" placeholder="comentario de esta escena…"></textarea>
+    </div>
+  </div>
 
   <script src="/static/sequence.js"></script>
 </body>

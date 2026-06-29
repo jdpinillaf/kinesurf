@@ -137,7 +137,7 @@ function makeCol(rootId) {
   const c = {
     rootId, root,
     video: null, lm: null, meta: null, clips: [], clip: null,
-    steps: [], cursor: 0,
+    steps: [], cursor: 0, notes: {},
     els: {
       videoSelect: $(".videoSelect"),
       clipSelect: $(".clipSelect"),
@@ -215,6 +215,7 @@ function makeCol(rootId) {
     c.els.slider.min = lo; c.els.slider.max = hi; c.cursor = lo;
     c.steps = (seq.steps && seq.steps.length) ? seq.steps.slice()
                                               : (autoSample(+els.nSteps.value), c.steps);
+    c.notes = seq.notes || {};   // { frame: {comment, drawing:[strokes]} }
     drawPreview();
   }
 
@@ -224,7 +225,7 @@ function makeCol(rootId) {
       const r = await fetch(`/api/sequence/${encodeURIComponent(c.video)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ video: c.video, steps: c.steps }),
+        body: JSON.stringify({ video: c.video, steps: c.steps, notes: c.notes }),
       });
       return r.ok && (await r.json()).ok;
     } catch (e) { return false; }
@@ -305,10 +306,14 @@ function makeCellEl(spec, i) {
   const cf = document.createElement("span");
   cf.className = "cf"; cf.textContent = `f ${f}`;
   cell.appendChild(cv); cell.appendChild(cf);
-  cell.addEventListener("click", () => {
-    selectedCol = (selectedCol === i ? -1 : i);
-    renderInfographic();
-  });
+  const note = col.notes && col.notes[f];
+  if (note && (note.comment || (note.drawing && note.drawing.length))) {
+    const badge = document.createElement("span");
+    badge.className = "badge"; badge.textContent = "✎";
+    badge.title = note.comment || "tiene dibujo";
+    cell.appendChild(badge);
+  }
+  cell.addEventListener("click", () => openModal(col, f));
   return cell;
 }
 
@@ -399,6 +404,110 @@ async function exportPNG() {
   setTimeout(() => (els.status.textContent = ""), 2000);
 }
 els.exportBtn.addEventListener("click", exportPNG);
+
+// ── Modal: vista previa de una escena (comentar + dibujar) ────────────────────
+const modal = {
+  el: document.getElementById("modal"),
+  base: document.getElementById("mBase"),
+  overlay: document.getElementById("mOverlay"),
+  title: document.getElementById("mTitle"),
+  comment: document.getElementById("mComment"),
+  col: null, f: 0, strokes: [],
+};
+const mbctx = modal.base.getContext("2d");
+const moctx = modal.overlay.getContext("2d");
+let mStroke = null;
+
+function drawModalStrokes() {
+  const W = modal.overlay.width, H = modal.overlay.height;
+  moctx.clearRect(0, 0, W, H);
+  moctx.lineWidth = 3; moctx.lineCap = "round";
+  for (const s of modal.strokes) {
+    moctx.strokeStyle = s.color || "#f33";
+    moctx.beginPath();
+    s.stroke.forEach((p, i) => {
+      const x = p[0] * W, y = p[1] * H;
+      if (i === 0) moctx.moveTo(x, y); else moctx.lineTo(x, y);
+    });
+    moctx.stroke();
+  }
+}
+
+function openModal(col, f) {
+  if (!col.meta) return;
+  modal.col = col; modal.f = f;
+  const note = (col.notes && col.notes[f]) || {};
+  // copia profunda de los trazos para editar sin tocar lo guardado hasta "guardar"
+  modal.strokes = note.drawing ? JSON.parse(JSON.stringify(note.drawing)) : [];
+  modal.comment.value = note.comment || "";
+  modal.title.textContent = `${col.video} — frame ${f}`;
+  const aspect = col.meta.width / col.meta.height;
+  const H = Math.min(560, Math.round(window.innerHeight * 0.6));
+  const W = Math.round(H * aspect);
+  for (const cv of [modal.base, modal.overlay]) { cv.width = W; cv.height = H; }
+  modal.base.parentElement.style.width = W + "px";
+  modal.base.parentElement.style.height = H + "px";
+  // base: frame real + esqueleto en coords de frame
+  mbctx.clearRect(0, 0, W, H);
+  const lm = col.lm ? col.lm[f] : null;
+  const img = new Image();
+  img.onload = () => {
+    mbctx.drawImage(img, 0, 0, W, H);
+    drawSkeletonFrame(mbctx, lm, W, H);
+  };
+  img.onerror = () => drawSkeletonFrame(mbctx, lm, W, H);
+  img.src = `/api/frame/${encodeURIComponent(col.video)}/${f}`;
+  drawModalStrokes();
+  modal.el.classList.add("show");
+}
+
+function closeModal() { modal.el.classList.remove("show"); modal.col = null; }
+
+function mPos(e) {
+  const r = modal.overlay.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * (modal.overlay.width / r.width),
+    y: (e.clientY - r.top) * (modal.overlay.height / r.height),
+  };
+}
+
+modal.overlay.addEventListener("mousedown", (e) => {
+  mStroke = { stroke: [], color: "#f33" };
+  modal.strokes.push(mStroke);
+  const p = mPos(e);
+  mStroke.stroke.push([p.x / modal.overlay.width, p.y / modal.overlay.height]);
+});
+modal.overlay.addEventListener("mousemove", (e) => {
+  if (!mStroke) return;
+  const p = mPos(e);
+  mStroke.stroke.push([p.x / modal.overlay.width, p.y / modal.overlay.height]);
+  drawModalStrokes();
+});
+window.addEventListener("mouseup", () => { mStroke = null; });
+
+document.getElementById("mUndo").addEventListener("click", () => {
+  modal.strokes.pop(); drawModalStrokes();
+});
+document.getElementById("mClear").addEventListener("click", () => {
+  modal.strokes = []; drawModalStrokes();
+});
+document.getElementById("mClose").addEventListener("click", closeModal);
+modal.el.addEventListener("click", (e) => { if (e.target === modal.el) closeModal(); });
+
+document.getElementById("mSave").addEventListener("click", async () => {
+  const col = modal.col; if (!col) return;
+  const comment = modal.comment.value.trim();
+  if (comment || modal.strokes.length) {
+    col.notes[modal.f] = { comment, drawing: modal.strokes };
+  } else {
+    delete col.notes[modal.f];   // vacío: no guardar nota
+  }
+  const ok = await col.save();
+  els.status.textContent = ok ? "guardado ✓" : "error";
+  setTimeout(() => (els.status.textContent = ""), 2000);
+  renderInfographic();           // refrescar el indicador ✎
+  closeModal();
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 function pick(videos, prefer, fallbackIdx) {
