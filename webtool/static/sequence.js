@@ -56,8 +56,49 @@ function drawPose(ctx, lm, W, H) {
   }
 }
 
+// Esqueleto en coordenadas del FRAME (norm 0-1 → celda), para superponer sobre el
+// video real (no encuadra a bbox: tiene que alinear con la imagen completa).
+function drawSkeletonFrame(ctx, lm, W, H) {
+  if (!lm) return;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#39d";
+  for (const [a, b] of BONES) {
+    const pa = lm[a], pb = lm[b];
+    if (!valid(pa) || !valid(pb)) continue;
+    ctx.beginPath();
+    ctx.moveTo(pa[0] * W, pa[1] * H);
+    ctx.lineTo(pb[0] * W, pb[1] * H);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#fd3";
+  for (let i = 0; i < 33; i++) {
+    const p = lm[i];
+    if (!valid(p)) continue;
+    ctx.beginPath();
+    ctx.arc(p[0] * W, p[1] * H, 3, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+}
+
+let viewMode = "skeleton";   // "skeleton" | "frame" | "both"
+
+// Pinta una celda según el modo: esqueleto encuadrado, frame real, o frame + esqueleto.
+function cellPaint(canvas, col, f) {
+  const ctx = canvas.getContext("2d"), W = canvas.width, H = canvas.height;
+  const lm = col.lm ? col.lm[f] : null;
+  if (viewMode === "skeleton") { drawPose(ctx, lm, W, H); return; }
+  ctx.clearRect(0, 0, W, H);
+  const img = new Image();
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, W, H);
+    if (viewMode === "both") drawSkeletonFrame(ctx, lm, W, H);
+  };
+  img.src = `/api/frame/${encodeURIComponent(col.video)}/${f}`;
+}
+
 const els = {
   nSteps: document.getElementById("nSteps"),
+  viewMode: document.getElementById("viewMode"),
   autoBtn: document.getElementById("autoBtn"),
   saveBtn: document.getElementById("saveBtn"),
   status: document.getElementById("status"),
@@ -97,13 +138,24 @@ function makeCol(rootId, rowId) {
     canvas.width = Math.round(h * aspect());
   }
 
+  let pvSeq = 0;
   function drawPreview() {
     const [lo, hi] = bounds();
     c.cursor = Math.max(lo, Math.min(c.cursor, hi));
     c.els.slider.value = c.cursor;
     c.els.frameLabel.textContent = `${c.cursor} / ${hi}`;
-    drawPose(pctx, c.lm ? c.lm[c.cursor] : null,
-             c.els.preview.width, c.els.preview.height);
+    const f = c.cursor, W = c.els.preview.width, H = c.els.preview.height;
+    const lm = c.lm ? c.lm[f] : null;
+    if (viewMode === "skeleton") { drawPose(pctx, lm, W, H); return; }
+    const seq = ++pvSeq;               // descarta paints viejos al scrubbear
+    pctx.clearRect(0, 0, W, H);
+    const img = new Image();
+    img.onload = () => {
+      if (seq !== pvSeq) return;
+      pctx.drawImage(img, 0, 0, W, H);
+      if (viewMode === "both") drawSkeletonFrame(pctx, lm, W, H);
+    };
+    img.src = `/api/frame/${encodeURIComponent(c.video)}/${f}`;
   }
 
   function autoSample(n) {
@@ -177,6 +229,7 @@ function makeCol(rootId, rowId) {
   c.autoSample = autoSample;
   c.bounds = bounds;
   c.sizeCanvas = sizeCanvas;
+  c.drawPreview = drawPreview;
   return c;
 }
 
@@ -211,7 +264,7 @@ function renderRow(col) {
     });
     const cv = document.createElement("canvas");
     col.sizeCanvas(cv, CELL_H);
-    drawPose(cv.getContext("2d"), col.lm ? col.lm[f] : null, cv.width, cv.height);
+    cellPaint(cv, col, f);
     const cf = document.createElement("span");
     cf.className = "cf"; cf.textContent = `f ${f}`;
     cell.appendChild(no); cell.appendChild(rm);
@@ -230,6 +283,11 @@ function renderInfographic() {
 }
 
 // ── Controles globales ────────────────────────────────────────────────────────
+els.viewMode.addEventListener("change", (e) => {
+  viewMode = e.target.value;
+  colA.drawPreview(); colB.drawPreview();
+  renderInfographic();
+});
 els.autoBtn.addEventListener("click", () => {
   const n = +els.nSteps.value;
   colA.autoSample(n); colB.autoSample(n);
