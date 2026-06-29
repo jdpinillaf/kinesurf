@@ -109,6 +109,9 @@ function createPane(root) {
         c.width = state.meta.width;
         c.height = state.meta.height;
       }
+      // proporción del video para que .frame escale a "contain" dentro del stage
+      const frameEl = root.querySelector(".frame");
+      if (frameEl) frameEl.style.aspectRatio = (state.meta.width / state.meta.height).toString();
       els.slider.max = state.meta.n_frames - 1;
       els.frameInput.max = state.meta.n_frames - 1;
       // toggle de esqueleto: deshabilitar si no hay landmarks

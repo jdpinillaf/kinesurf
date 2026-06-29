@@ -6,32 +6,38 @@
   <title>Surf — Comparar 2 videos</title>
   <link rel="stylesheet" href="/static/style.css">
   <style>
-    /* Layout de comparación: 2 columnas */
+    /* Layout de comparación: todo cabe en 100vh, sin scroll de página */
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body { display: flex; flex-direction: column; }
     #compareHeader { display: flex; gap: 12px; align-items: center; padding: 8px 12px;
-      background: #2a2a32; flex-wrap: wrap; }
+      background: #2a2a32; flex-wrap: wrap; flex: 0 0 auto; }
     #compareHeader .title { font-weight: 600; }
     #compareHeader a { color: #8ab4f8; }
-    #panes { display: flex; gap: 12px; padding: 12px; align-items: flex-start; }
-    .pane { flex: 1; min-width: 0; background: #242430; border: 1px solid #3a3a44;
-      border-radius: 8px; padding: 8px; }
+    /* fila de 2 columnas que ocupa el alto restante */
+    #panes { flex: 1 1 auto; min-height: 0; display: flex; gap: 10px; padding: 10px; }
+    .pane { flex: 1; min-width: 0; min-height: 0; background: #242430;
+      border: 1px solid #3a3a44; border-radius: 8px; padding: 8px;
+      display: flex; flex-direction: column; }
     .pane .paneTools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
-      margin-bottom: 8px; }
+      margin-bottom: 8px; flex: 0 0 auto; }
     .pane .paneTools .tools { display: flex; gap: 4px; }
-    .pane .stage { position: relative; display: block; width: 100%;
-      background: #15151b; border-radius: 4px; overflow: hidden; }
-    /* canvas escala al ancho de la columna manteniendo proporción */
-    .pane canvas { position: absolute; top: 0; left: 0; width: 100%; height: auto; }
-    .pane .base { position: relative; }
+    /* stage ocupa el alto sobrante; el video se centra y escala a ese alto */
+    .pane .stage { flex: 1 1 auto; min-height: 0; display: flex;
+      align-items: center; justify-content: center; overflow: hidden; }
+    /* .frame: caja con la proporción del video; alto = 100% del stage, ancho derivado,
+       y nunca más ancho que la columna (max-width) → comportamiento "contain". */
+    .pane .frame { position: relative; height: 100%; max-width: 100%;
+      aspect-ratio: var(--ar, 0.5625); background: #15151b; border-radius: 4px; }
+    .pane .frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
     .pane .overlay { cursor: crosshair; }
     .pane .paneNav { display: flex; gap: 6px; align-items: center; margin-top: 8px;
-      flex-wrap: wrap; }
+      flex-wrap: wrap; flex: 0 0 auto; }
     .pane .slider { flex: 1; min-width: 80px; }
     .pane .strideWrap { display: flex; align-items: center; gap: 4px; font-size: 13px;
       color: #aab; }
     .pane .frameLabel { font-size: 13px; color: #aab; min-width: 64px; }
     .pane .status { font-size: 13px; color: #8c8; min-width: 60px; }
-    .pane select.videoSelect { max-width: 230px; }
-    @media (max-width: 760px) { #panes { flex-direction: column; } }
+    .pane select.videoSelect { max-width: 200px; }
   </style>
 </head>
 <body>
@@ -60,8 +66,10 @@
         <span class="status"></span>
       </div>
       <div class="stage">
-        <canvas class="base"></canvas>
-        <canvas class="overlay"></canvas>
+        <div class="frame">
+          <canvas class="base"></canvas>
+          <canvas class="overlay"></canvas>
+        </div>
       </div>
       <div class="paneNav">
         <button class="playBtn">▶</button>
@@ -91,8 +99,10 @@
         <span class="status"></span>
       </div>
       <div class="stage">
-        <canvas class="base"></canvas>
-        <canvas class="overlay"></canvas>
+        <div class="frame">
+          <canvas class="base"></canvas>
+          <canvas class="overlay"></canvas>
+        </div>
       </div>
       <div class="paneNav">
         <button class="playBtn">▶</button>
