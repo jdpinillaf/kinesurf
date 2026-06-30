@@ -105,14 +105,17 @@ function paintStrokes(ctx, strokes, W, H) {
 let viewMode = "skeleton";   // "skeleton" | "frame" | "both" | "split"
 let showMetrics = true;      // ángulos por paso + Δ profe vs alumno
 
-// Métricas (metrics.js) del frame f de una columna, en píxeles del video.
+// Métricas 2D+3D (metrics.js) del frame f de una columna.
 function metricsFor(col, f) {
   if (!col.lm || !col.meta || f == null) return [];
-  return computeMetrics(makeResolver(col.lm[f], col.meta.width, col.meta.height));
+  const r2 = makeResolver(col.lm[f], col.meta.width, col.meta.height);
+  const r3 = makeResolver3D(col.world ? col.world[f] : null);
+  return computeMetricsBoth(r2, r3);
 }
 
-// Bloque .cellMetrics de una celda. En filas de alumno (colB) agrega Δ vs el profe
-// (colA) de la MISMA columna i, coloreado.
+// Bloque .cellMetrics de una celda. Cada familia articular muestra 2D y 3D; las
+// inclinaciones solo 2D. En filas de alumno (colB) agrega Δ2D y Δ3D vs el profe (colA)
+// de la MISMA columna i, coloreado.
 function cellMetricsEl(spec, i, f) {
   const col = spec.col;
   const mine = metricsFor(col, f);
@@ -123,15 +126,20 @@ function cellMetricsEl(spec, i, f) {
   const box = document.createElement("div");
   box.className = "cellMetrics";
   for (const m of mine) {
+    const p = pBy[m.key];
+    const part = (tag, mine_v, prof_v) => {
+      let dHtml = "";
+      if (isStudent && p) {
+        const d = fmtDelta(prof_v, mine_v);
+        if (d) dHtml = ` <span class="md ${deltaClass(prof_v, mine_v)}">${d}</span>`;
+      }
+      return `<span class="mt">${tag}</span><span class="mv">${fmtMetric(mine_v)}${dHtml}</span>`;
+    };
     const row = document.createElement("div");
     row.className = "m";
-    let dHtml = "";
-    if (isStudent && pBy[m.key]) {
-      const d = fmtDelta(pBy[m.key].value, m.value);
-      if (d) dHtml = ` <span class="md ${deltaClass(pBy[m.key].value, m.value)}">${d}</span>`;
-    }
-    row.innerHTML =
-      `<span class="ml">${m.label}</span><span class="mv">${fmtMetric(m.value)}${dHtml}</span>`;
+    let html = `<span class="ml">${m.label}</span><span class="mvals">` + part("2D", m.v2d, p && p.v2d);
+    if (!m.isTilt) html += part("3D", m.v3d, p && p.v3d);
+    row.innerHTML = html + "</span>";
     box.appendChild(row);
   }
   return box;
@@ -203,7 +211,7 @@ function makeCol(rootId) {
   const $ = (s) => root.querySelector(s);
   const c = {
     rootId, root,
-    video: null, lm: null, meta: null, clips: [], clip: null,
+    video: null, lm: null, world: null, meta: null, clips: [], clip: null,
     steps: [], cursor: 0, notes: {},
     els: {
       videoSelect: $(".videoSelect"),
@@ -273,6 +281,9 @@ function makeCol(rootId) {
     c.els.videoSelect.value = video;
     c.meta = await (await fetch(`/api/meta/${encodeURIComponent(video)}`)).json();
     c.lm = (await (await fetch(`/api/landmarks/${encodeURIComponent(video)}`)).json()).landmarks;
+    try {
+      c.world = (await (await fetch(`/api/worldlandmarks/${encodeURIComponent(video)}`)).json()).landmarks;
+    } catch (e) { c.world = null; }
     c.clips = (await (await fetch(`/api/clips/${encodeURIComponent(video)}`)).json()).clips || [];
     const seq = await (await fetch(`/api/sequence/${encodeURIComponent(video)}`)).json();
     c.clip = null;
@@ -434,7 +445,7 @@ async function exportPNG() {
   els.status.textContent = "exportando…";
 
   const CELL = 220, PAD = 16, LBL = 90, GAP = 10, TITLE = 38, FNUM = 22;
-  const MH = showMetrics ? 66 : 0;   // alto extra para las líneas de métricas
+  const MH = showMetrics ? 112 : 0;   // alto extra para las líneas de métricas (2D + 3D)
   const cw = (col) => Math.round(CELL * (col.meta ? col.meta.width / col.meta.height : 0.5625));
   const colW = Math.max(cw(colA), cw(colB));
   const rowH = CELL + FNUM + MH;
@@ -479,19 +490,24 @@ async function exportPNG() {
       if (prof) prof.forEach((m) => (pBy[m.key] = m));
       ctx.font = "10px sans-serif";
       let ty = y + CELL + FNUM;
-      for (const m of mine) {
+      const drawLine = (label, tag, mineV, profV) => {
         ctx.fillStyle = "#aab";
-        const line = `${m.label}: ${fmtMetric(m.value)}`;
+        const line = `${label} ${tag}: ${fmtMetric(mineV)}`;
         ctx.fillText(line, colLeft, ty);
-        if (isStu && pBy[m.key]) {
-          const d = fmtDelta(pBy[m.key].value, m.value);
+        if (isStu && profV != null && mineV != null) {
+          const d = fmtDelta(profV, mineV);
           if (d) {
-            const cls = deltaClass(pBy[m.key].value, m.value);
+            const cls = deltaClass(profV, mineV);
             ctx.fillStyle = cls === "dx-far" ? "#f87171" : cls === "dx-near" ? "#34d399" : "#6b7b8a";
             ctx.fillText(" " + d, colLeft + ctx.measureText(line).width + 2, ty);
           }
         }
-        ty += 12;
+        ty += 11;
+      };
+      for (const m of mine) {
+        const p = pBy[m.key];
+        drawLine(m.label, "2D", m.v2d, p && p.v2d);
+        if (!m.isTilt) drawLine(m.label, "3D", m.v3d, p && p.v3d);
       }
     }
   }

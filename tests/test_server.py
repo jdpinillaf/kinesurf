@@ -75,6 +75,22 @@ def test_landmarks_nan_serializes_as_null(client, monkeypatch):
     assert data["landmarks"][0][0][1] == 1.0        # non-NaN preserved
 
 
+def test_worldlandmarks_shape_and_nan(client, monkeypatch):
+    import numpy as np
+    import webtool.server as srv
+    # Monkeypatch para NO disparar la extracción real (lenta, necesita el modelo).
+    world = np.ones((2, 33, 4), dtype=np.float32)
+    world[0, 0, 0] = np.nan
+    monkeypatch.setattr(srv, "load_or_extract_world", lambda video: world)
+    resp = client.get("/api/worldlandmarks/PopUpLateral.mov")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["n_frames"] == 2
+    assert len(data["landmarks"][0]) == 33
+    assert data["landmarks"][0][0][0] is None      # NaN -> null
+    assert data["landmarks"][0][0][1] == 1.0
+
+
 def test_annotations_roundtrip(client, tmp_path, monkeypatch):
     import webtool.server as srv
     monkeypatch.setattr(srv, "OUTPUT_DIR", str(tmp_path))

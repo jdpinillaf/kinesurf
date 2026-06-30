@@ -27,6 +27,7 @@ function createPane(root) {
     frame: 0,
     meta: null,             // {fps, n_frames, width, height, has_landmarks}
     landmarks: null,
+    world: null,            // world landmarks 3D (métricos) para ángulos 3D
     annotations: null,
     tool: "none",
     stride: 1,
@@ -82,7 +83,8 @@ function createPane(root) {
   // ── Métricas biomecánicas del frame actual (metrics.js) ──────────────────────
   // Resolver que respeta las correcciones manuales de landmarks y escala a píxeles
   // del canvas (resolución nativa) para no distorsionar los ángulos por la proporción.
-  function metricResolver() {
+  // Resolver 2D: respeta correcciones manuales y escala a píxeles del canvas.
+  function metricResolver2D() {
     const f = state.frame;
     return (idx) => {
       const corr = state.annotations?.corrections?.[f]?.[idx];
@@ -93,19 +95,26 @@ function createPane(root) {
       return { x: p[0] * overlay.width, y: p[1] * overlay.height, vis: p[3] == null ? 1 : p[3] };
     };
   }
+  // Resolver 3D: world landmarks crudos (no refleja correcciones manuales, otro espacio).
+  function metricResolver3D() {
+    return makeResolver3D(state.world ? state.world[state.frame] : null);
+  }
   function renderMetricsPanel() {
     if (!els.metricsPanel) return;
     els.metricsPanel.innerHTML = "";
     for (const m of pane.metrics) {
       const chip = document.createElement("span");
       chip.className = "chip";
+      const v3 = m.isTilt ? "" : ` <span class="lbl">3D</span><span class="val">${fmtMetric(m.v3d)}</span>`;
       chip.innerHTML =
-        `<span class="lbl">${m.label}</span><span class="val">${fmtMetric(m.value)}</span>`;
+        `<span class="lbl">${m.label}</span><span class="lbl">2D</span>` +
+        `<span class="val">${fmtMetric(m.v2d)}</span>${v3}`;
       els.metricsPanel.appendChild(chip);
     }
   }
   function updateMetrics() {
-    pane.metrics = state.meta ? computeMetrics(metricResolver()) : [];
+    pane.metrics = state.meta
+      ? computeMetricsBoth(metricResolver2D(), metricResolver3D()) : [];
     renderMetricsPanel();
     if (pane.onMetrics) pane.onMetrics(pane.metrics);
   }
@@ -193,6 +202,11 @@ function createPane(root) {
       state.meta = await (await fetch(`/api/meta/${encodeURIComponent(video)}`)).json();
       const lr = await fetch(`/api/landmarks/${encodeURIComponent(video)}`);
       state.landmarks = (await lr.json()).landmarks;
+      // world landmarks 3D (para métricas 3D); puede tardar si aún no está en disco.
+      try {
+        state.world = (await (await fetch(
+          `/api/worldlandmarks/${encodeURIComponent(video)}`)).json()).landmarks;
+      } catch (e) { state.world = null; }
       // Clamp n_frames a la cantidad real de landmarks (CAP_PROP_FRAME_COUNT
       // sobre-reporta en .MOV de iPhone). Guard: no clampear si está vacío.
       if (Array.isArray(state.landmarks) && state.landmarks.length > 0

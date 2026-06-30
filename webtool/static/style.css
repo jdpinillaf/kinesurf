@@ -236,16 +236,20 @@ body.metrics-off .cellMetrics { display: none; }
   text-transform: uppercase; letter-spacing: .3px; }
 #deltaBar .dcard .drow { display: flex; gap: 8px; align-items: baseline;
   font-variant-numeric: tabular-nums; }
+#deltaBar .dcard .drow .mtag { color: var(--faint); font-size: 10px; min-width: 18px;
+  font-weight: 700; }
 #deltaBar .dcard .drow .a { color: var(--accent-2); font-weight: 700; }
 #deltaBar .dcard .drow .b { color: #f0b86c; font-weight: 700; }
 #deltaBar .dcard .drow .d { margin-left: auto; font-weight: 700; }
 #deltaBar .dhint { align-self: center; color: var(--faint); font-size: var(--fs-xs); }
 
-/* métricas por celda en /sequence */
-.cellMetrics { margin-top: 2px; display: flex; flex-direction: column; gap: 1px;
-  font-size: 10px; line-height: 1.25; min-width: 92px; max-width: 130px; }
-.cellMetrics .m { display: flex; justify-content: space-between; gap: 4px;
+/* métricas por celda en /sequence (2D y 3D) */
+.cellMetrics { margin-top: 3px; display: flex; flex-direction: column; gap: 2px;
+  font-size: 10px; line-height: 1.2; min-width: 108px; max-width: 178px;
   font-variant-numeric: tabular-nums; }
+.cellMetrics .m { display: flex; flex-direction: column; }
 .cellMetrics .m .ml { color: var(--muted); }
+.cellMetrics .m .mvals { display: flex; gap: 5px; flex-wrap: wrap; align-items: baseline; }
+.cellMetrics .m .mt { color: var(--faint); font-size: 9px; font-weight: 700; }
 .cellMetrics .m .mv { color: var(--text); font-weight: 700; }
 .cellMetrics .m .md { font-weight: 700; }

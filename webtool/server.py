@@ -45,6 +45,11 @@ def landmarks_npy_path(video: str) -> str:
     return os.path.join(OUTPUT_DIR, f"{stem}_landmarks.npy")
 
 
+def worldlandmarks_npy_path(video: str) -> str:
+    stem = os.path.splitext(video)[0]
+    return os.path.join(OUTPUT_DIR, f"{stem}_worldlandmarks.npy")
+
+
 def annotations_path(video: str) -> str:
     stem = os.path.splitext(video)[0]
     return os.path.join(OUTPUT_DIR, f"{stem}_annotations.json")
@@ -73,6 +78,25 @@ def load_or_extract_landmarks(video: str) -> np.ndarray:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     np.save(npy, lm)
     return lm
+
+
+def load_or_extract_world(video: str) -> np.ndarray:
+    """World landmarks 3D (métricos). Si falta el npy, extrae AMBOS (2d+world) en una
+    sola pasada y los guarda. Extracción heavy = lenta; pre-generar con extract_world.py."""
+    wnpy = worldlandmarks_npy_path(video)
+    if os.path.isfile(wnpy):
+        return np.load(wnpy)
+    lm, world, _ = pose.extract_pose(os.path.join(RAW_DIR, video))
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    np.save(landmarks_npy_path(video), lm)
+    np.save(wnpy, world)
+    return world
+
+
+def clean_landmarks(lm: np.ndarray) -> list:
+    """np.ndarray [frames,33,4] → listas de Python con NaN convertido a None (JSON válido)."""
+    return [[[None if math.isnan(v) else v for v in pt] for pt in frame]
+            for frame in lm.tolist()]
 
 
 def read_meta(path: str) -> dict:
@@ -150,9 +174,15 @@ def create_app() -> Flask:
     def api_landmarks(video: str):
         video_path(video)  # valida existencia / 404
         lm = load_or_extract_landmarks(video)
-        # NaN -> None para JSON válido (plain Python floats/None, no numpy scalars).
-        clean = [[[None if math.isnan(v) else v for v in pt] for pt in frame]
-                 for frame in lm.tolist()]
+        clean = clean_landmarks(lm)  # NaN -> None para JSON válido
+        return jsonify(landmarks=clean, n_frames=len(clean))
+
+    @app.get("/api/worldlandmarks/<video>")
+    def api_worldlandmarks(video: str):
+        # Landmarks world 3D (métricos, metros, origen en cadera) para ángulos articulares 3D.
+        video_path(video)  # valida existencia / 404
+        world = load_or_extract_world(video)
+        clean = clean_landmarks(world)
         return jsonify(landmarks=clean, n_frames=len(clean))
 
     @app.get("/api/annotations/<video>")

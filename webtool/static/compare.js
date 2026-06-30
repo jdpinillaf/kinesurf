@@ -21,6 +21,14 @@ paneB.onAction = (action) => mirror(paneB, action);
 const metricsToggle = document.getElementById("metricsToggle");
 const deltaBar = document.getElementById("deltaBar");
 
+// Una fila de método (2D o 3D): tag, valor A, valor B, Δ coloreado.
+function methodRow(tag, av, bv) {
+  const d = fmtDelta(av, bv) || "—";
+  return `<span class="drow"><span class="mtag">${tag}</span>` +
+    `<span class="a">${fmtMetric(av)}</span><span class="b">${fmtMetric(bv)}</span>` +
+    `<span class="d ${deltaClass(av, bv)}">${d}</span></span>`;
+}
+
 function updateDeltaBar() {
   const A = paneA.metrics || [], B = paneB.metrics || [];
   const byKeyB = {};
@@ -32,16 +40,13 @@ function updateDeltaBar() {
   hint.textContent = "A profe · B alumno · Δ = B − A";
   deltaBar.appendChild(hint);
   for (const a of A) {
-    const b = byKeyB[a.key] || { value: null };
+    const b = byKeyB[a.key] || {};
     const card = document.createElement("div");
     card.className = "dcard";
-    const dcls = deltaClass(a.value, b.value);
-    const d = fmtDelta(a.value, b.value) || "—";
-    card.innerHTML =
-      `<span class="dlabel">${a.label}</span>` +
-      `<span class="drow"><span class="a">${fmtMetric(a.value)}</span>` +
-      `<span class="b">${fmtMetric(b.value)}</span>` +
-      `<span class="d ${dcls}">${d}</span></span>`;
+    let html = `<span class="dlabel">${a.label}</span>`;
+    html += methodRow("2D", a.v2d, b.v2d);
+    if (!a.isTilt) html += methodRow("3D", a.v3d, b.v3d);
+    card.innerHTML = html;
     deltaBar.appendChild(card);
   }
 }

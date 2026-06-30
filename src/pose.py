@@ -97,11 +97,24 @@ def _build_detector() -> vision.PoseLandmarker:
 # --- Extracción ----------------------------------------------------------------
 
 def extract_landmarks(video_path: str) -> tuple[np.ndarray, dict]:
-    """Extrae landmarks frame por frame de un video.
+    """Wrapper retro-compatible: devuelve solo (landmarks 2D imagen, meta).
+
+    Lo usan server.py y notebook.ipynb; mantener esta firma. Para los world landmarks
+    3D usar extract_pose().
+    """
+    landmarks, _world, meta = extract_pose(video_path)
+    return landmarks, meta
+
+
+def extract_pose(video_path: str) -> tuple[np.ndarray, np.ndarray, dict]:
+    """Extrae landmarks 2D (imagen) y world 3D (métricos) frame por frame.
 
     Returns:
         landmarks: np.ndarray [n_frames, 33, 4] con (x, y, z, visibility).
-                   Coords x/y normalizadas [0,1]. Frames sin pose → NaN.
+                   Coords x/y normalizadas [0,1] (espacio imagen). Frames sin pose → NaN.
+        world:     np.ndarray [n_frames, 33, 4] con (x, y, z, visibility).
+                   x/y/z en METROS, origen en el centro de las caderas (pose_world_landmarks).
+                   No alineado a gravedad. Para ángulos articulares 3D. Frames sin pose → NaN.
         meta: dict con fps, n_frames, width, height, fps_warning, n_frames_sin_pose,
               pct_high_confidence.
     """
@@ -140,6 +153,7 @@ def extract_landmarks(video_path: str) -> tuple[np.ndarray, dict]:
     detector = _build_detector()
 
     frames_lm: list[np.ndarray] = []
+    frames_world: list[np.ndarray] = []
     n_sin_pose = 0
     frame_idx = 0
 
@@ -167,7 +181,19 @@ def extract_landmarks(video_path: str) -> tuple[np.ndarray, dict]:
                 arr = np.full((N_LANDMARKS, 4), np.nan, dtype=np.float32)
                 n_sin_pose += 1
 
+            # world landmarks 3D (métricos, centrados en cadera). Pueden faltar aunque
+            # haya pose 2D → NaN en ese caso.
+            if result.pose_world_landmarks:
+                wlms = result.pose_world_landmarks[0]
+                warr = np.array(
+                    [[lm.x, lm.y, lm.z, lm.visibility] for lm in wlms],
+                    dtype=np.float32,
+                )
+            else:
+                warr = np.full((N_LANDMARKS, 4), np.nan, dtype=np.float32)
+
             frames_lm.append(arr)
+            frames_world.append(warr)
             frame_idx += 1
     finally:
         cap.release()
@@ -176,6 +202,11 @@ def extract_landmarks(video_path: str) -> tuple[np.ndarray, dict]:
     landmarks = (
         np.stack(frames_lm, axis=0)
         if frames_lm
+        else np.empty((0, N_LANDMARKS, 4), dtype=np.float32)
+    )
+    world = (
+        np.stack(frames_world, axis=0)
+        if frames_world
         else np.empty((0, N_LANDMARKS, 4), dtype=np.float32)
     )
 
@@ -190,7 +221,7 @@ def extract_landmarks(video_path: str) -> tuple[np.ndarray, dict]:
         "n_frames_sin_pose": n_sin_pose,
         "pct_high_confidence": pct_high_confidence(landmarks),
     }
-    return landmarks, meta
+    return landmarks, world, meta
 
 
 def pct_high_confidence(landmarks: np.ndarray) -> float:
