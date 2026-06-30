@@ -240,7 +240,8 @@ function makeCol(rootId) {
   const $ = (s) => root.querySelector(s);
   const c = {
     rootId, root,
-    video: null, lm: null, filled: null, corrections: {}, world: null, meta: null, clips: [], clip: null,
+    video: null, lm: null, filled: null, corrections: {}, annotations: null,
+    world: null, meta: null, clips: [], clip: null,
     steps: [], cursor: 0, notes: {},
     els: {
       videoSelect: $(".videoSelect"),
@@ -313,7 +314,9 @@ function makeCol(rootId) {
     c.lm = (await (await fetch(`/api/landmarks/${encodeURIComponent(video)}`)).json()).landmarks;
     // correcciones manuales por video (hechas en /etiquetar o /compare) → anclas del relleno
     const ann = await (await fetch(`/api/annotations/${encodeURIComponent(video)}`)).json();
-    c.corrections = ann.corrections || {};
+    ann.corrections = ann.corrections || {};
+    c.annotations = ann;          // objeto completo (para persistir sin pisar angles/drawings)
+    c.corrections = ann.corrections;
     c.filled = fillOcclusions(c.lm, c.corrections);
     try {
       c.world = (await (await fetch(`/api/worldlandmarks/${encodeURIComponent(video)}`)).json()).landmarks;
@@ -567,15 +570,85 @@ const modal = {
   overlay: document.getElementById("mOverlay"),
   title: document.getElementById("mTitle"),
   comment: document.getElementById("mComment"),
-  col: null, f: 0, strokes: [],
+  col: null, f: 0, strokes: [], tool: "draw", W: 0, H: 0,
 };
 const mbctx = modal.base.getContext("2d");
 const moctx = modal.overlay.getContext("2d");
 let mStroke = null;
+let mFixIdx = null;   // landmark en arrastre (modo corregir)
 
-function drawModalStrokes() {
-  moctx.clearRect(0, 0, modal.overlay.width, modal.overlay.height);
-  paintStrokes(moctx, modal.strokes, modal.overlay.width, modal.overlay.height);
+// Dibuja el contenido dinámico del overlay según el modo del modal.
+function drawModalDynamic() {
+  const W = modal.overlay.width, H = modal.overlay.height;
+  moctx.clearRect(0, 0, W, H);
+  if (modal.tool === "fix") {
+    const La = colLm(modal.col);
+    drawSkeletonFrame(moctx, La ? La[modal.f] : null, W, H);
+  } else {
+    paintStrokes(moctx, modal.strokes, W, H);
+  }
+}
+function drawModalStrokes() { drawModalDynamic(); }   // compat
+
+// Dibuja la base del modal. En "fix" siempre el frame del video (para corregir sobre la
+// imagen real); en "draw" la representación de la celda (esqueleto / video / ambos).
+function renderModalBase() {
+  const W = modal.W, H = modal.H, col = modal.col, f = modal.f, mode = modal.mode;
+  const La = colLm(col);
+  const lm = La ? La[f] : null;
+  mbctx.clearRect(0, 0, W, H);
+  if (modal.tool === "draw" && mode === "skeleton") {
+    drawPose(mbctx, lm, W, H);
+  } else {
+    const img = new Image();
+    img.onload = () => {
+      mbctx.drawImage(img, 0, 0, W, H);
+      if (modal.tool === "draw" && mode === "both") drawSkeletonFrame(mbctx, lm, W, H);
+    };
+    img.src = `/api/frame/${encodeURIComponent(col.video)}/${f}`;
+  }
+}
+
+// Landmark más cercano a pos (px del canvas) según el array activo; o null.
+function modalNearest(pos, maxDist = 18) {
+  const La = colLm(modal.col);
+  const lm = La ? La[modal.f] : null;
+  if (!lm) return null;
+  const W = modal.overlay.width, H = modal.overlay.height;
+  let best = null, bd = maxDist;
+  for (let i = 0; i < 33; i++) {
+    const p = lm[i];
+    if (!valid(p)) continue;
+    const d = Math.hypot(p[0] * W - pos.x, p[1] * H - pos.y);
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+
+// Cambia el modo del modal (dibujar / corregir) y re-renderiza.
+function setModalTool(t) {
+  modal.tool = t;
+  document.getElementById("mDraw").classList.toggle("active", t === "draw");
+  document.getElementById("mFix").classList.toggle("active", t === "fix");
+  modal.overlay.style.cursor = t === "fix" ? "move" : "crosshair";
+  renderModalBase();
+  drawModalDynamic();
+}
+
+// Persiste las correcciones de un video en el store de annotations (sin pisar
+// angles/drawings que escriben /etiquetar y /compare).
+async function saveCorrections(col) {
+  if (!col.annotations) return false;
+  col.annotations.video = col.video;
+  col.annotations.corrections = col.corrections;
+  try {
+    const r = await fetch(`/api/annotations/${encodeURIComponent(col.video)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(col.annotations),
+    });
+    return r.ok && (await r.json()).ok;
+  } catch (e) { return false; }
 }
 
 // Abre el modal mostrando la MISMA representación de la celda clickeada (esqueleto o
@@ -592,23 +665,11 @@ function openModal(col, f, mode) {
   const aspect = col.meta.width / col.meta.height;
   const H = Math.min(560, Math.round(window.innerHeight * 0.6));
   const W = Math.round(H * aspect);
+  modal.W = W; modal.H = H;
   for (const cv of [modal.base, modal.overlay]) { cv.width = W; cv.height = H; }
   modal.base.parentElement.style.width = W + "px";
   modal.base.parentElement.style.height = H + "px";
-  const La = colLm(col);
-  const lm = La ? La[f] : null;
-  mbctx.clearRect(0, 0, W, H);
-  if (mode === "skeleton") {
-    drawPose(mbctx, lm, W, H);   // vectores encuadrados, igual que la celda
-  } else {
-    const img = new Image();
-    img.onload = () => {
-      mbctx.drawImage(img, 0, 0, W, H);
-      if (mode === "both") drawSkeletonFrame(mbctx, lm, W, H);
-    };
-    img.src = `/api/frame/${encodeURIComponent(col.video)}/${f}`;
-  }
-  drawModalStrokes();
+  setModalTool("draw");   // base + overlay según el modo
   modal.el.classList.add("show");
 }
 
@@ -623,19 +684,39 @@ function mPos(e) {
 }
 
 modal.overlay.addEventListener("mousedown", (e) => {
+  if (modal.tool === "fix") { mFixIdx = modalNearest(mPos(e)); return; }
   mStroke = { stroke: [], color: "#f33" };
   modal.strokes.push(mStroke);
   const p = mPos(e);
   mStroke.stroke.push([p.x / modal.overlay.width, p.y / modal.overlay.height]);
 });
 modal.overlay.addEventListener("mousemove", (e) => {
+  const W = modal.overlay.width, H = modal.overlay.height;
+  if (modal.tool === "fix") {
+    if (mFixIdx == null) return;
+    const p = mPos(e), col = modal.col, f = modal.f;
+    col.corrections[f] = col.corrections[f] || {};
+    col.corrections[f][mFixIdx] = [p.x / W, p.y / H];
+    col.filled = fillOcclusions(col.lm, col.corrections);   // re-rellenar: propaga a vecinos
+    drawModalDynamic();
+    return;
+  }
   if (!mStroke) return;
   const p = mPos(e);
-  mStroke.stroke.push([p.x / modal.overlay.width, p.y / modal.overlay.height]);
+  mStroke.stroke.push([p.x / W, p.y / H]);
   drawModalStrokes();
 });
-window.addEventListener("mouseup", () => { mStroke = null; });
+window.addEventListener("mouseup", async () => {
+  if (modal.tool === "fix" && mFixIdx != null) {
+    mFixIdx = null;
+    await saveCorrections(modal.col);
+    renderInfographic();   // refrescar celdas con la corrección + propagación
+  }
+  mStroke = null;
+});
 
+document.getElementById("mDraw").addEventListener("click", () => setModalTool("draw"));
+document.getElementById("mFix").addEventListener("click", () => setModalTool("fix"));
 document.getElementById("mUndo").addEventListener("click", () => {
   modal.strokes.pop(); drawModalStrokes();
 });
