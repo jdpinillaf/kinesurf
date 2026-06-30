@@ -30,6 +30,8 @@ function createPane(root) {
     frame: 0,
     meta: null,             // {fps, n_frames, width, height, has_landmarks}
     landmarks: null,
+    filled: null,           // landmarks con oclusiones rellenadas (occlusion.js)
+    fillOn: true,           // usar el array rellenado para dibujar/medir
     world: null,            // world landmarks 3D (métricos) para ángulos 3D
     annotations: null,
     tool: "none",
@@ -92,10 +94,11 @@ function createPane(root) {
     return (idx) => {
       const corr = state.annotations?.corrections?.[f]?.[idx];
       if (corr) return { x: corr[0] * overlay.width, y: corr[1] * overlay.height, vis: 1 };
-      const p = state.landmarks?.[f]?.[idx];
+      const p = activeLm()?.[f]?.[idx];
       if (!p || p[0] == null) return null;
-      if (p[3] != null && p[3] < 0.5) return null;
-      return { x: p[0] * overlay.width, y: p[1] * overlay.height, vis: p[3] == null ? 1 : p[3] };
+      if (p[3] != null && p[3] < 0.5) return null;   // estimados (EST_VIS) pasan
+      return { x: p[0] * overlay.width, y: p[1] * overlay.height,
+               vis: p[3] == null ? 1 : Math.min(p[3], 1) };
     };
   }
   // Resolver 3D: world landmarks crudos (no refleja correcciones manuales, otro espacio).
@@ -120,6 +123,12 @@ function createPane(root) {
       ? computeMetricsBoth(metricResolver2D(), metricResolver3D()) : [];
     renderMetricsPanel();
     if (pane.onMetrics) pane.onMetrics(pane.metrics);
+  }
+  // Toggle de relleno de oclusiones: redibuja el overlay y recalcula métricas.
+  function setFill(on) {
+    state.fillOn = on;
+    redrawOverlay();
+    updateMetrics();
   }
 
   // Notifica una acción de navegación para sync (guardado contra recursión).
@@ -205,6 +214,7 @@ function createPane(root) {
       state.meta = await (await fetch(`/api/meta/${encodeURIComponent(video)}`)).json();
       const lr = await fetch(`/api/landmarks/${encodeURIComponent(video)}`);
       state.landmarks = (await lr.json()).landmarks;
+      state.filled = fillOcclusions(state.landmarks);   // relleno temporal de oclusiones
       // world landmarks 3D (para métricas 3D); puede tardar si aún no está en disco.
       try {
         state.world = (await (await fetch(
@@ -323,40 +333,49 @@ function createPane(root) {
   }
 
   // ── Overlay: esqueleto, ángulos, trazos ──────────────────────────────────────
+  // Array de landmarks activo: rellenado (si fillOn) o crudo.
+  function activeLm() { return (state.fillOn && state.filled) ? state.filled : state.landmarks; }
+
   function getPoint(frame, idx) {
     const corr = state.annotations?.corrections?.[frame]?.[idx];
     if (corr) return { x: corr[0] * overlay.width, y: corr[1] * overlay.height };
-    const lm = state.landmarks?.[frame]?.[idx];
+    const lm = activeLm()?.[frame]?.[idx];
     if (!lm || lm[0] === null) return null;
     return { x: lm[0] * overlay.width, y: lm[1] * overlay.height };
   }
 
-  // Visibility de un joint: una corrección manual cuenta como confiable (1).
+  // Visibility de un joint: corrección manual = confiable (1); EST_VIS si es estimado.
   function jointVis(frame, idx) {
     if (state.annotations?.corrections?.[frame]?.[idx]) return 1;
-    const lm = state.landmarks?.[frame]?.[idx];
+    const lm = activeLm()?.[frame]?.[idx];
     return lm && lm[3] != null ? lm[3] : 1;
   }
 
   function drawSkeleton() {
     const f = state.frame;
     octx.lineWidth = 2;
-    // huesos: punteado y atenuado si alguno de sus extremos es de baja confianza
+    // huesos: cian punteado si va a un estimado; azul atenuado punteado si a baja confianza
     for (const [a, b] of BONES) {
       const pa = getPoint(f, a), pb = getPoint(f, b);
       if (!pa || !pb) continue;
-      const low = jointVis(f, a) < LOW_VIS || jointVis(f, b) < LOW_VIS;
-      octx.strokeStyle = low ? "rgba(57,153,221,.35)" : "#39d";
-      octx.setLineDash(low ? [5, 4] : []);
+      const va = jointVis(f, a), vb = jointVis(f, b);
+      const est = va === EST_VIS || vb === EST_VIS;
+      const low = va < LOW_VIS || vb < LOW_VIS;
+      octx.strokeStyle = est ? "rgba(34,211,238,.55)" : low ? "rgba(57,153,221,.35)" : "#39d";
+      octx.setLineDash(est || low ? [5, 4] : []);
       octx.beginPath();
       octx.moveTo(pa.x, pa.y); octx.lineTo(pb.x, pb.y); octx.stroke();
     }
     octx.setLineDash([]);
-    // joints: relleno amarillo si confiable; círculo hueco naranja si baja visibility
+    // joints: amarillo lleno (confiable), cian hueco (estimado), naranja hueco (ocluido)
     for (let i = 0; i < 33; i++) {
       const p = getPoint(f, i);
       if (!p) continue;
-      if (jointVis(f, i) < LOW_VIS) {
+      const v = jointVis(f, i);
+      if (v === EST_VIS) {
+        octx.strokeStyle = "#22d3ee"; octx.lineWidth = 2;
+        octx.beginPath(); octx.arc(p.x, p.y, 4.5, 0, 2 * Math.PI); octx.stroke();
+      } else if (v < LOW_VIS) {
         octx.strokeStyle = "#ff8c1a"; octx.lineWidth = 2;
         octx.beginPath(); octx.arc(p.x, p.y, 4.5, 0, 2 * Math.PI); octx.stroke();
       } else {
@@ -609,7 +628,7 @@ function createPane(root) {
 
   // API pública del pane (para compare.js)
   Object.assign(pane, {
-    loadVideos, load, goTo, step, play, pause, togglePlay,
+    loadVideos, load, goTo, step, play, pause, togglePlay, setFill,
     getVideo: () => state.video,
   });
   return pane;

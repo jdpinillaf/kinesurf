@@ -42,9 +42,10 @@ function drawPose(ctx, lm, W, H) {
   for (const [a, b] of BONES) {
     const pa = lm[a], pb = lm[b];
     if (!valid(pa) || !valid(pb)) continue;
+    const est = isEstimated(pa) || isEstimated(pb);
     const low = lowVis(pa) || lowVis(pb);
-    ctx.strokeStyle = low ? "rgba(57,153,221,.35)" : "#39d";
-    ctx.setLineDash(low ? [4, 3] : []);
+    ctx.strokeStyle = est ? "rgba(34,211,238,.55)" : low ? "rgba(57,153,221,.35)" : "#39d";
+    ctx.setLineDash(est || low ? [4, 3] : []);
     ctx.beginPath();
     ctx.moveTo(X(pa), Y(pa));
     ctx.lineTo(X(pb), Y(pb));
@@ -54,7 +55,10 @@ function drawPose(ctx, lm, W, H) {
   for (let i = 0; i < 33; i++) {
     const p = lm[i];
     if (!valid(p)) continue;
-    if (lowVis(p)) {
+    if (isEstimated(p)) {
+      ctx.strokeStyle = "#22d3ee"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(X(p), Y(p), 3.5, 0, 2 * Math.PI); ctx.stroke();
+    } else if (lowVis(p)) {
       ctx.strokeStyle = "#ff8c1a"; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(X(p), Y(p), 3.5, 0, 2 * Math.PI); ctx.stroke();
     } else {
@@ -72,9 +76,10 @@ function drawSkeletonFrame(ctx, lm, W, H) {
   for (const [a, b] of BONES) {
     const pa = lm[a], pb = lm[b];
     if (!valid(pa) || !valid(pb)) continue;
+    const est = isEstimated(pa) || isEstimated(pb);
     const low = lowVis(pa) || lowVis(pb);
-    ctx.strokeStyle = low ? "rgba(57,153,221,.35)" : "#39d";
-    ctx.setLineDash(low ? [4, 3] : []);
+    ctx.strokeStyle = est ? "rgba(34,211,238,.55)" : low ? "rgba(57,153,221,.35)" : "#39d";
+    ctx.setLineDash(est || low ? [4, 3] : []);
     ctx.beginPath();
     ctx.moveTo(pa[0] * W, pa[1] * H);
     ctx.lineTo(pb[0] * W, pb[1] * H);
@@ -84,7 +89,10 @@ function drawSkeletonFrame(ctx, lm, W, H) {
   for (let i = 0; i < 33; i++) {
     const p = lm[i];
     if (!valid(p)) continue;
-    if (lowVis(p)) {
+    if (isEstimated(p)) {
+      ctx.strokeStyle = "#22d3ee"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(p[0] * W, p[1] * H, 3.5, 0, 2 * Math.PI); ctx.stroke();
+    } else if (lowVis(p)) {
       ctx.strokeStyle = "#ff8c1a"; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(p[0] * W, p[1] * H, 3.5, 0, 2 * Math.PI); ctx.stroke();
     } else {
@@ -118,11 +126,16 @@ function paintStrokes(ctx, strokes, W, H) {
 
 let viewMode = "skeleton";   // "skeleton" | "frame" | "both" | "split"
 let showMetrics = true;      // ángulos por paso + Δ profe vs alumno
+let showFill = true;         // usar landmarks con oclusiones rellenadas
+
+// Array de landmarks activo de una columna: rellenado (si showFill) o crudo.
+function colLm(col) { return (showFill && col.filled) ? col.filled : col.lm; }
 
 // Métricas 2D+3D (metrics.js) del frame f de una columna.
 function metricsFor(col, f) {
   if (!col.lm || !col.meta || f == null) return [];
-  const r2 = makeResolver(col.lm[f], col.meta.width, col.meta.height);
+  const La = colLm(col);
+  const r2 = makeResolver(La[f], col.meta.width, col.meta.height);
   const r3 = makeResolver3D(col.world ? col.world[f] : null);
   return computeMetricsBoth(r2, r3);
 }
@@ -162,7 +175,8 @@ function cellMetricsEl(spec, i, f) {
 // Pinta una celda según el mode: "skeleton" (encuadrado), "frame", o "both" (frame+esqueleto).
 function cellPaint(canvas, col, f, mode) {
   const ctx = canvas.getContext("2d"), W = canvas.width, H = canvas.height;
-  const lm = col.lm ? col.lm[f] : null;
+  const La = colLm(col);
+  const lm = La ? La[f] : null;
   const note = noteFor(col, mode, f);
   if (mode === "skeleton") {
     drawPose(ctx, lm, W, H);
@@ -189,7 +203,8 @@ function cellCanvasAsync(col, f, cellH, mode) {
     const cv = document.createElement("canvas");
     col.sizeCanvas(cv, cellH);
     const ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
-    const lm = col.lm ? col.lm[f] : null;
+    const La = colLm(col);
+    const lm = La ? La[f] : null;
     const note = noteFor(col, mode, f);
     if (mode === "skeleton") {
       drawPose(ctx, lm, W, H);
@@ -225,7 +240,7 @@ function makeCol(rootId) {
   const $ = (s) => root.querySelector(s);
   const c = {
     rootId, root,
-    video: null, lm: null, world: null, meta: null, clips: [], clip: null,
+    video: null, lm: null, filled: null, world: null, meta: null, clips: [], clip: null,
     steps: [], cursor: 0, notes: {},
     els: {
       videoSelect: $(".videoSelect"),
@@ -257,7 +272,8 @@ function makeCol(rootId) {
     c.els.slider.value = c.cursor;
     c.els.frameLabel.textContent = `${c.cursor} / ${hi}`;
     const f = c.cursor, W = c.els.preview.width, H = c.els.preview.height;
-    const lm = c.lm ? c.lm[f] : null;
+    const La = colLm(c);
+    const lm = La ? La[f] : null;
     const mode = previewMode();
     if (mode === "skeleton") { drawPose(pctx, lm, W, H); return; }
     const seq = ++pvSeq;               // descarta paints viejos al scrubbear
@@ -295,6 +311,7 @@ function makeCol(rootId) {
     c.els.videoSelect.value = video;
     c.meta = await (await fetch(`/api/meta/${encodeURIComponent(video)}`)).json();
     c.lm = (await (await fetch(`/api/landmarks/${encodeURIComponent(video)}`)).json()).landmarks;
+    c.filled = fillOcclusions(c.lm);   // relleno temporal de oclusiones
     try {
       c.world = (await (await fetch(`/api/worldlandmarks/${encodeURIComponent(video)}`)).json()).landmarks;
     } catch (e) { c.world = null; }
@@ -438,6 +455,11 @@ document.getElementById("metricsToggle").addEventListener("change", (e) => {
   showMetrics = e.target.checked;
   renderInfographic();
 });
+document.getElementById("fillToggle").addEventListener("change", (e) => {
+  showFill = e.target.checked;
+  colA.drawPreview(); colB.drawPreview();
+  renderInfographic();
+});
 els.autoBtn.addEventListener("click", () => {
   const n = +els.nSteps.value;
   colA.autoSample(n); colB.autoSample(n);
@@ -570,7 +592,8 @@ function openModal(col, f, mode) {
   for (const cv of [modal.base, modal.overlay]) { cv.width = W; cv.height = H; }
   modal.base.parentElement.style.width = W + "px";
   modal.base.parentElement.style.height = H + "px";
-  const lm = col.lm ? col.lm[f] : null;
+  const La = colLm(col);
+  const lm = La ? La[f] : null;
   mbctx.clearRect(0, 0, W, H);
   if (mode === "skeleton") {
     drawPose(mbctx, lm, W, H);   // vectores encuadrados, igual que la celda

@@ -59,6 +59,13 @@ function applyMetricsVisibility() {
 metricsToggle.addEventListener("change", applyMetricsVisibility);
 applyMetricsVisibility();
 
+// Toggle de relleno de oclusiones (afecta ambos paneles).
+const fillToggle = document.getElementById("fillToggle");
+fillToggle.addEventListener("change", () => {
+  paneA.setFill(fillToggle.checked);
+  paneB.setFill(fillToggle.checked);
+});
+
 // Defaults: profe a la izquierda, alumno a la derecha (si están disponibles).
 function pick(videos, prefer, fallbackIdx) {
   const hit = videos.find((v) => v.toLowerCase().includes(prefer));

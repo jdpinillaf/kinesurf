@@ -4,6 +4,8 @@ const state = {
   frame: 0,
   meta: null,        // {fps, n_frames, width, height, has_landmarks}
   landmarks: null,
+  filled: null,      // landmarks con oclusiones rellenadas (occlusion.js)
+  fillOn: true,      // usar el array rellenado para dibujar
   annotations: null,
   stride: 1,         // avanza N frames por paso / por tick de play
   playing: false,
@@ -55,6 +57,7 @@ async function selectVideo(video) {
     state.meta = await r.json();
     const lr = await fetch(`/api/landmarks/${encodeURIComponent(video)}`);
     state.landmarks = (await lr.json()).landmarks;
+    state.filled = fillOcclusions(state.landmarks);   // relleno temporal de oclusiones
     // Clamp navigable frame count to landmarks length.
     // iPhone .MOV files cause CAP_PROP_FRAME_COUNT to overestimate the
     // actual readable frames; MediaPipe only produces landmarks for the
@@ -134,41 +137,50 @@ const BONES = [
 // Visibility por debajo de la cual el punto es poco confiable (ocluido/adivinado).
 const LOW_VIS = 0.5;
 
+// Array de landmarks activo: rellenado (si fillOn) o crudo.
+function activeLm() { return (state.fillOn && state.filled) ? state.filled : state.landmarks; }
+
 // Devuelve el punto en px de canvas para (frame, idx), con corrección si existe, o null.
 function getPoint(frame, idx) {
   const corr = state.annotations?.corrections?.[frame]?.[idx];
   if (corr) return { x: corr[0] * overlay.width, y: corr[1] * overlay.height };
-  const lm = state.landmarks?.[frame]?.[idx];
+  const lm = activeLm()?.[frame]?.[idx];
   if (!lm || lm[0] === null) return null;
   return { x: lm[0] * overlay.width, y: lm[1] * overlay.height };
 }
 
-// Visibility de un joint; una corrección manual cuenta como confiable (1).
+// Visibility de un joint; corrección manual = confiable (1); EST_VIS si es estimado.
 function jointVis(frame, idx) {
   if (state.annotations?.corrections?.[frame]?.[idx]) return 1;
-  const lm = state.landmarks?.[frame]?.[idx];
+  const lm = activeLm()?.[frame]?.[idx];
   return lm && lm[3] != null ? lm[3] : 1;
 }
 
 function drawSkeleton() {
   const f = state.frame;
   octx.lineWidth = 2;
-  // huesos: punteado/atenuado si alguno de sus extremos es de baja confianza
+  // huesos: cian si va a un estimado; azul atenuado si a baja confianza; sólido si ok
   for (const [a, b] of BONES) {
     const pa = getPoint(f, a), pb = getPoint(f, b);
     if (!pa || !pb) continue;
-    const low = jointVis(f, a) < LOW_VIS || jointVis(f, b) < LOW_VIS;
-    octx.strokeStyle = low ? "rgba(57,153,221,.35)" : "#39d";
-    octx.setLineDash(low ? [5, 4] : []);
+    const va = jointVis(f, a), vb = jointVis(f, b);
+    const est = va === EST_VIS || vb === EST_VIS;
+    const low = va < LOW_VIS || vb < LOW_VIS;
+    octx.strokeStyle = est ? "rgba(34,211,238,.55)" : low ? "rgba(57,153,221,.35)" : "#39d";
+    octx.setLineDash(est || low ? [5, 4] : []);
     octx.beginPath();
     octx.moveTo(pa.x, pa.y); octx.lineTo(pb.x, pb.y); octx.stroke();
   }
   octx.setLineDash([]);
-  // joints: amarillo relleno si confiable; hueco naranja si baja visibility
+  // joints: amarillo lleno (confiable), cian hueco (estimado), naranja hueco (ocluido)
   for (let i = 0; i < 33; i++) {
     const p = getPoint(f, i);
     if (!p) continue;
-    if (jointVis(f, i) < LOW_VIS) {
+    const v = jointVis(f, i);
+    if (v === EST_VIS) {
+      octx.strokeStyle = "#22d3ee"; octx.lineWidth = 2;
+      octx.beginPath(); octx.arc(p.x, p.y, 4.5, 0, 2 * Math.PI); octx.stroke();
+    } else if (v < LOW_VIS) {
       octx.strokeStyle = "#ff8c1a"; octx.lineWidth = 2;
       octx.beginPath(); octx.arc(p.x, p.y, 4.5, 0, 2 * Math.PI); octx.stroke();
     } else {
@@ -187,6 +199,11 @@ function redrawOverlay() {
 
 document.getElementById("skeletonToggle")
   .addEventListener("change", redrawOverlay);
+
+document.getElementById("fillToggle").addEventListener("change", (e) => {
+  state.fillOn = e.target.checked;
+  redrawOverlay();
+});
 
 // avanza/retrocede `stride` frames (pausa el play si está corriendo manualmente)
 function step(dir) { showFrame(state.frame + dir * state.stride); }
