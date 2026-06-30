@@ -9,8 +9,10 @@ const BONES = [
 
 const PREVIEW_H = 200;   // alto del canvas de preview
 const CELL_H = 150;      // alto de cada celda de la infografía
+const LOW_VIS = 0.5;     // visibility por debajo = punto poco confiable (ocluido)
 
 function valid(p) { return p && p[0] !== null && p[1] !== null; }
+function lowVis(p) { return p && p[3] != null && p[3] < LOW_VIS; }
 
 // Dibuja el esqueleto (stick-figure) de un frame (landmarks norm 0-1) en ctx WxH,
 // encuadrando la pose a su bounding-box (centrada, lo más grande posible manteniendo
@@ -37,22 +39,28 @@ function drawPose(ctx, lm, W, H) {
   const Y = (p) => p[1] * scale + oy;
 
   ctx.lineWidth = 2;
-  ctx.strokeStyle = "#39d";
   for (const [a, b] of BONES) {
     const pa = lm[a], pb = lm[b];
     if (!valid(pa) || !valid(pb)) continue;
+    const low = lowVis(pa) || lowVis(pb);
+    ctx.strokeStyle = low ? "rgba(57,153,221,.35)" : "#39d";
+    ctx.setLineDash(low ? [4, 3] : []);
     ctx.beginPath();
     ctx.moveTo(X(pa), Y(pa));
     ctx.lineTo(X(pb), Y(pb));
     ctx.stroke();
   }
-  ctx.fillStyle = "#fd3";
+  ctx.setLineDash([]);
   for (let i = 0; i < 33; i++) {
     const p = lm[i];
     if (!valid(p)) continue;
-    ctx.beginPath();
-    ctx.arc(X(p), Y(p), 3, 0, 2 * Math.PI);
-    ctx.fill();
+    if (lowVis(p)) {
+      ctx.strokeStyle = "#ff8c1a"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(X(p), Y(p), 3.5, 0, 2 * Math.PI); ctx.stroke();
+    } else {
+      ctx.fillStyle = "#fd3";
+      ctx.beginPath(); ctx.arc(X(p), Y(p), 3, 0, 2 * Math.PI); ctx.fill();
+    }
   }
 }
 
@@ -61,22 +69,28 @@ function drawPose(ctx, lm, W, H) {
 function drawSkeletonFrame(ctx, lm, W, H) {
   if (!lm) return;
   ctx.lineWidth = 2;
-  ctx.strokeStyle = "#39d";
   for (const [a, b] of BONES) {
     const pa = lm[a], pb = lm[b];
     if (!valid(pa) || !valid(pb)) continue;
+    const low = lowVis(pa) || lowVis(pb);
+    ctx.strokeStyle = low ? "rgba(57,153,221,.35)" : "#39d";
+    ctx.setLineDash(low ? [4, 3] : []);
     ctx.beginPath();
     ctx.moveTo(pa[0] * W, pa[1] * H);
     ctx.lineTo(pb[0] * W, pb[1] * H);
     ctx.stroke();
   }
-  ctx.fillStyle = "#fd3";
+  ctx.setLineDash([]);
   for (let i = 0; i < 33; i++) {
     const p = lm[i];
     if (!valid(p)) continue;
-    ctx.beginPath();
-    ctx.arc(p[0] * W, p[1] * H, 3, 0, 2 * Math.PI);
-    ctx.fill();
+    if (lowVis(p)) {
+      ctx.strokeStyle = "#ff8c1a"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(p[0] * W, p[1] * H, 3.5, 0, 2 * Math.PI); ctx.stroke();
+    } else {
+      ctx.fillStyle = "#fd3";
+      ctx.beginPath(); ctx.arc(p[0] * W, p[1] * H, 3, 0, 2 * Math.PI); ctx.fill();
+    }
   }
 }
 

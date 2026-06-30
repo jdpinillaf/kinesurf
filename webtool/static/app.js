@@ -131,6 +131,8 @@ const BONES = [
   [11, 12], [23, 24], [11, 23], [12, 24],         // torso
   [23, 25], [25, 27], [24, 26], [26, 28],         // piernas
 ];
+// Visibility por debajo de la cual el punto es poco confiable (ocluido/adivinado).
+const LOW_VIS = 0.5;
 
 // Devuelve el punto en px de canvas para (frame, idx), con corrección si existe, o null.
 function getPoint(frame, idx) {
@@ -141,21 +143,38 @@ function getPoint(frame, idx) {
   return { x: lm[0] * overlay.width, y: lm[1] * overlay.height };
 }
 
+// Visibility de un joint; una corrección manual cuenta como confiable (1).
+function jointVis(frame, idx) {
+  if (state.annotations?.corrections?.[frame]?.[idx]) return 1;
+  const lm = state.landmarks?.[frame]?.[idx];
+  return lm && lm[3] != null ? lm[3] : 1;
+}
+
 function drawSkeleton() {
   const f = state.frame;
   octx.lineWidth = 2;
-  octx.strokeStyle = "#39d";
+  // huesos: punteado/atenuado si alguno de sus extremos es de baja confianza
   for (const [a, b] of BONES) {
     const pa = getPoint(f, a), pb = getPoint(f, b);
     if (!pa || !pb) continue;
+    const low = jointVis(f, a) < LOW_VIS || jointVis(f, b) < LOW_VIS;
+    octx.strokeStyle = low ? "rgba(57,153,221,.35)" : "#39d";
+    octx.setLineDash(low ? [5, 4] : []);
     octx.beginPath();
     octx.moveTo(pa.x, pa.y); octx.lineTo(pb.x, pb.y); octx.stroke();
   }
-  octx.fillStyle = "#fd3";
+  octx.setLineDash([]);
+  // joints: amarillo relleno si confiable; hueco naranja si baja visibility
   for (let i = 0; i < 33; i++) {
     const p = getPoint(f, i);
     if (!p) continue;
-    octx.beginPath(); octx.arc(p.x, p.y, 4, 0, 2 * Math.PI); octx.fill();
+    if (jointVis(f, i) < LOW_VIS) {
+      octx.strokeStyle = "#ff8c1a"; octx.lineWidth = 2;
+      octx.beginPath(); octx.arc(p.x, p.y, 4.5, 0, 2 * Math.PI); octx.stroke();
+    } else {
+      octx.fillStyle = "#fd3";
+      octx.beginPath(); octx.arc(p.x, p.y, 4, 0, 2 * Math.PI); octx.fill();
+    }
   }
 }
 
