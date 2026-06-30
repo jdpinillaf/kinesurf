@@ -214,7 +214,6 @@ function createPane(root) {
       state.meta = await (await fetch(`/api/meta/${encodeURIComponent(video)}`)).json();
       const lr = await fetch(`/api/landmarks/${encodeURIComponent(video)}`);
       state.landmarks = (await lr.json()).landmarks;
-      state.filled = fillOcclusions(state.landmarks);   // relleno temporal de oclusiones
       // world landmarks 3D (para métricas 3D); puede tardar si aún no está en disco.
       try {
         state.world = (await (await fetch(
@@ -231,6 +230,7 @@ function createPane(root) {
       state.annotations.corrections = state.annotations.corrections || {};
       state.annotations.angles = state.annotations.angles || [];
       state.annotations.drawings = state.annotations.drawings || {};
+      recomputeFilled();   // relleno con las correcciones como anclas
       // clips de este video
       const cl = await (await fetch(`/api/clips/${encodeURIComponent(video)}`)).json();
       state.clips = cl.clips || [];
@@ -335,6 +335,11 @@ function createPane(root) {
   // ── Overlay: esqueleto, ángulos, trazos ──────────────────────────────────────
   // Array de landmarks activo: rellenado (si fillOn) o crudo.
   function activeLm() { return (state.fillOn && state.filled) ? state.filled : state.landmarks; }
+
+  // Recalcula el relleno usando las correcciones manuales como anclas (propagación).
+  function recomputeFilled() {
+    state.filled = fillOcclusions(state.landmarks, state.annotations?.corrections || {});
+  }
 
   function getPoint(frame, idx) {
     const corr = state.annotations?.corrections?.[frame]?.[idx];
@@ -569,7 +574,14 @@ function createPane(root) {
     penStroke.stroke.push([p.x / overlay.width, p.y / overlay.height]);
     redrawOverlay();
   });
-  window.addEventListener("mouseup", () => { dragIdx = null; penStroke = null; });
+  window.addEventListener("mouseup", () => {
+    if (dragIdx !== null) {            // terminó un arrastre de corrección → propagar
+      recomputeFilled();
+      redrawOverlay();
+      updateMetrics();
+    }
+    dragIdx = null; penStroke = null;
+  });
 
   // ángulo manual (3 clicks)
   overlay.addEventListener("click", (e) => {
@@ -605,7 +617,9 @@ function createPane(root) {
     delete state.annotations.drawings[f];
     delete state.annotations.corrections[f];
     state.annotations.angles = (state.annotations.angles || []).filter((a) => a.frame !== f);
+    recomputeFilled();
     redrawOverlay();
+    updateMetrics();
   });
 
   // guardar

@@ -240,7 +240,7 @@ function makeCol(rootId) {
   const $ = (s) => root.querySelector(s);
   const c = {
     rootId, root,
-    video: null, lm: null, filled: null, world: null, meta: null, clips: [], clip: null,
+    video: null, lm: null, filled: null, corrections: {}, world: null, meta: null, clips: [], clip: null,
     steps: [], cursor: 0, notes: {},
     els: {
       videoSelect: $(".videoSelect"),
@@ -311,7 +311,10 @@ function makeCol(rootId) {
     c.els.videoSelect.value = video;
     c.meta = await (await fetch(`/api/meta/${encodeURIComponent(video)}`)).json();
     c.lm = (await (await fetch(`/api/landmarks/${encodeURIComponent(video)}`)).json()).landmarks;
-    c.filled = fillOcclusions(c.lm);   // relleno temporal de oclusiones
+    // correcciones manuales por video (hechas en /etiquetar o /compare) → anclas del relleno
+    const ann = await (await fetch(`/api/annotations/${encodeURIComponent(video)}`)).json();
+    c.corrections = ann.corrections || {};
+    c.filled = fillOcclusions(c.lm, c.corrections);
     try {
       c.world = (await (await fetch(`/api/worldlandmarks/${encodeURIComponent(video)}`)).json()).landmarks;
     } catch (e) { c.world = null; }

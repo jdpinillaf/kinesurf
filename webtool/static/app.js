@@ -57,7 +57,6 @@ async function selectVideo(video) {
     state.meta = await r.json();
     const lr = await fetch(`/api/landmarks/${encodeURIComponent(video)}`);
     state.landmarks = (await lr.json()).landmarks;
-    state.filled = fillOcclusions(state.landmarks);   // relleno temporal de oclusiones
     // Clamp navigable frame count to landmarks length.
     // iPhone .MOV files cause CAP_PROP_FRAME_COUNT to overestimate the
     // actual readable frames; MediaPipe only produces landmarks for the
@@ -72,6 +71,7 @@ async function selectVideo(video) {
     state.annotations.corrections = state.annotations.corrections || {};
     state.annotations.angles = state.annotations.angles || [];
     state.annotations.drawings = state.annotations.drawings || {};
+    recomputeFilled();   // relleno con las correcciones como anclas
     // Buffer de los canvas = resolución real del frame (dibujo nítido).
     // El tamaño en pantalla lo ajusta fitStage() vía CSS sobre .frame.
     for (const c of [base, overlay]) {
@@ -139,6 +139,11 @@ const LOW_VIS = 0.5;
 
 // Array de landmarks activo: rellenado (si fillOn) o crudo.
 function activeLm() { return (state.fillOn && state.filled) ? state.filled : state.landmarks; }
+
+// Recalcula el relleno usando las correcciones manuales como anclas (propagación).
+function recomputeFilled() {
+  state.filled = fillOcclusions(state.landmarks, state.annotations?.corrections || {});
+}
 
 // Devuelve el punto en px de canvas para (frame, idx), con corrección si existe, o null.
 function getPoint(frame, idx) {
@@ -312,7 +317,13 @@ overlay.addEventListener("mousemove", (e) => {
   redrawOverlay();
 });
 
-window.addEventListener("mouseup", () => { dragIdx = null; });
+window.addEventListener("mouseup", () => {
+  if (dragIdx !== null) {            // terminó un arrastre de corrección → propagar
+    recomputeFilled();
+    redrawOverlay();
+  }
+  dragIdx = null;
+});
 
 // ── Herramienta de dibujo libre (pen) ────────────────────────────────────────
 let penStroke = null;
@@ -434,6 +445,7 @@ document.getElementById("clearBtn").addEventListener("click", () => {
   delete state.annotations.drawings[f];
   delete state.annotations.corrections[f];
   state.annotations.angles = (state.annotations.angles || []).filter((a) => a.frame !== f);
+  recomputeFilled();
   redrawOverlay();
 });
 
