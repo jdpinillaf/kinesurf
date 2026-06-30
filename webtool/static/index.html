@@ -29,6 +29,7 @@
     <select id="videoSelect" title="elegir video"></select>
     <label><input type="checkbox" id="skeletonToggle" checked> esqueleto</label>
     <label title="rellenar por interpolación los puntos ocluidos"><input type="checkbox" id="fillToggle" checked> rellenar oclusiones</label>
+    <label title="centro de masa + línea de balance"><input type="checkbox" id="balanceToggle"> balance</label>
     <span class="sep"></span>
     <span class="tools" role="group" aria-label="herramientas">
       <button data-tool="none" class="active" title="solo mirar">cursor</button>
@@ -62,6 +63,7 @@
     <span id="frameLabel">0 / 0</span>
   </footer>
 
+  <script src="/static/metrics.js"></script>
   <script src="/static/occlusion.js"></script>
   <script src="/static/app.js"></script>
 </body>

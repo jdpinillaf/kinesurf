@@ -6,6 +6,7 @@ const state = {
   landmarks: null,
   filled: null,      // landmarks con oclusiones rellenadas (occlusion.js)
   fillOn: true,      // usar el array rellenado para dibujar
+  balanceOn: false,  // dibujar centro de masa + línea de balance
   annotations: null,
   stride: 1,         // avanza N frames por paso / por tick de play
   playing: false,
@@ -193,6 +194,7 @@ function drawSkeleton() {
       octx.beginPath(); octx.arc(p.x, p.y, 4, 0, 2 * Math.PI); octx.fill();
     }
   }
+  if (state.balanceOn) drawBalance(octx, (i) => getPoint(state.frame, i));
 }
 
 function redrawOverlay() {
@@ -207,6 +209,11 @@ document.getElementById("skeletonToggle")
 
 document.getElementById("fillToggle").addEventListener("change", (e) => {
   state.fillOn = e.target.checked;
+  redrawOverlay();
+});
+
+document.getElementById("balanceToggle").addEventListener("change", (e) => {
+  state.balanceOn = e.target.checked;
   redrawOverlay();
 });
 

@@ -88,6 +88,30 @@ function computeMetrics(getPt) {
   return out;
 }
 
+// Punto medio de dos landmarks resueltos (para "landmarks virtuales": centro de hombros,
+// caderas, tobillos). Devuelve {x,y,z,vis} o null si falta alguno.
+function midOf(getPt, i, j) {
+  const a = getPt(i), b = getPt(j);
+  if (!a || !b) return null;
+  return {
+    x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: ((a.z || 0) + (b.z || 0)) / 2,
+    vis: Math.min(a.vis == null ? 1 : a.vis, b.vis == null ? 1 : b.vis),
+  };
+}
+
+// X-factor (rotación hombros-caderas, plano imagen): separación entre la inclinación de la
+// línea de hombros y la de caderas. Proxy del coil/uncoil. null si falta.
+function xFactor(getPt) {
+  const s = lineTilt(getPt(11), getPt(12)), h = lineTilt(getPt(23), getPt(24));
+  return (s == null || h == null) ? null : s - h;
+}
+
+// Apilado: ángulo hombros-medio → caderas-medio → tobillos-medio. 180° = línea recta
+// (cuerpo apilado); menos = quebrado en la cadera. null si falta.
+function stackAngle(getPt) {
+  return angleAt(midOf(getPt, 11, 12), midOf(getPt, 23, 24), midOf(getPt, 27, 28));
+}
+
 // Calcula métricas en 2D y 3D a la vez → [{key, label, isTilt, v2d, v3d}].
 // Familias articulares: v2d (imagen) y v3d (world). Inclinaciones: solo v2d (los world
 // landmarks no están alineados a gravedad → "vs horizontal" no aplica en 3D).
@@ -106,6 +130,11 @@ function computeMetricsBoth(getPt2D, getPt3D) {
       v2d: lineTilt(getPt2D(t.line[0]), getPt2D(t.line[1])), v3d: null,
     });
   }
+  // relaciones de coach
+  out.push({ key: "xfactor", label: "Rotación", isTilt: true,
+             v2d: xFactor(getPt2D), v3d: null });
+  out.push({ key: "stack", label: "Apilado", isTilt: false,
+             v2d: stackAngle(getPt2D), v3d: getPt3D ? stackAngle(getPt3D) : null });
   return out;
 }
 
@@ -123,4 +152,50 @@ function fmtDelta(a, b) {
 function deltaClass(a, b, thresh = 15) {
   if (a == null || b == null) return "dx-na";
   return Math.abs(b - a) > thresh ? "dx-far" : "dx-near";
+}
+
+// ── Centro de masa + balance (lectura clave de un coach) ──────────────────────
+// ptOf(idx) -> {x,y} en PÍXELES del canvas (p.ej. getPoint del pane). Devuelve la
+// geometría de balance, o null si no hay tronco.
+function midPx(ptOf, i, j) {
+  const a = ptOf(i), b = ptOf(j);
+  if (!a || !b) return null;
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+function balanceGeom(ptOf) {
+  const sh = midPx(ptOf, 11, 12), hip = midPx(ptOf, 23, 24);
+  if (!sh || !hip) return null;
+  // CoM proxy de tronco (estable): pesa más la cadera. No es modelo segmentario completo.
+  const com = { x: 0.6 * hip.x + 0.4 * sh.x, y: 0.6 * hip.y + 0.4 * sh.y };
+  const aL = ptOf(27), aR = ptOf(28);
+  let base = null, ankleY = null, inside = true;
+  if (aL && aR) {
+    base = [aL, aR];
+    ankleY = (aL.y + aR.y) / 2;
+    const lo = Math.min(aL.x, aR.x), hi = Math.max(aL.x, aR.x);
+    const m = Math.max(8, (hi - lo) * 0.15);   // margen tolerable de la base
+    inside = com.x >= lo - m && com.x <= hi + m;
+  }
+  return { com, base, ankleY, inside };
+}
+// Dibuja CoM (magenta) + plomada vertical + base entre tobillos. Verde si la plomada cae
+// sobre la base de sustentación, rojo si el peso se va atrás/adelante.
+function drawBalance(ctx, ptOf) {
+  const g = balanceGeom(ptOf);
+  if (!g) return;
+  const col = g.inside ? "#34d399" : "#f87171";
+  ctx.save();
+  if (g.base) {
+    ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(g.base[0].x, g.base[0].y); ctx.lineTo(g.base[1].x, g.base[1].y); ctx.stroke();
+  }
+  const yEnd = g.ankleY != null ? g.ankleY : g.com.y + 60;
+  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+  ctx.beginPath(); ctx.moveTo(g.com.x, g.com.y); ctx.lineTo(g.com.x, yEnd); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#e879f9";
+  ctx.beginPath(); ctx.arc(g.com.x, g.com.y, 6, 0, 2 * Math.PI); ctx.fill();
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
 }

@@ -66,6 +66,13 @@ fillToggle.addEventListener("change", () => {
   paneB.setFill(fillToggle.checked);
 });
 
+// Toggle de centro de masa + balance (afecta ambos paneles).
+const balanceToggle = document.getElementById("balanceToggle");
+balanceToggle.addEventListener("change", () => {
+  paneA.setBalance(balanceToggle.checked);
+  paneB.setBalance(balanceToggle.checked);
+});
+
 // Defaults: profe a la izquierda, alumno a la derecha (si están disponibles).
 function pick(videos, prefer, fallbackIdx) {
   const hit = videos.find((v) => v.toLowerCase().includes(prefer));

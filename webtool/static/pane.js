@@ -32,6 +32,7 @@ function createPane(root) {
     landmarks: null,
     filled: null,           // landmarks con oclusiones rellenadas (occlusion.js)
     fillOn: true,           // usar el array rellenado para dibujar/medir
+    balanceOn: false,       // dibujar centro de masa + línea de balance
     world: null,            // world landmarks 3D (métricos) para ángulos 3D
     annotations: null,
     tool: "none",
@@ -129,6 +130,11 @@ function createPane(root) {
     state.fillOn = on;
     redrawOverlay();
     updateMetrics();
+  }
+  // Toggle de centro de masa + balance.
+  function setBalance(on) {
+    state.balanceOn = on;
+    redrawOverlay();
   }
 
   // Notifica una acción de navegación para sync (guardado contra recursión).
@@ -388,6 +394,7 @@ function createPane(root) {
         octx.beginPath(); octx.arc(p.x, p.y, 4, 0, 2 * Math.PI); octx.fill();
       }
     }
+    if (state.balanceOn) drawBalance(octx, (i) => getPoint(state.frame, i));
   }
 
   function angleDeg(a, b, c) {
@@ -642,7 +649,7 @@ function createPane(root) {
 
   // API pública del pane (para compare.js)
   Object.assign(pane, {
-    loadVideos, load, goTo, step, play, pause, togglePlay, setFill,
+    loadVideos, load, goTo, step, play, pause, togglePlay, setFill, setBalance,
     getVideo: () => state.video,
   });
   return pane;
