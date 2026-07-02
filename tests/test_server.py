@@ -61,12 +61,15 @@ def test_landmarks_shape(client):
     assert -0.5 < lm[0][0][0] < 1.5
 
 
-def test_landmarks_nan_serializes_as_null(client, monkeypatch):
+def test_landmarks_nan_serializes_as_null(client, tmp_path, monkeypatch):
     import numpy as np
     import webtool.server as srv
+    # El endpoint sirve el npy de disco (la extracción va en background):
+    # dejar el archivo listo en un OUTPUT_DIR temporal.
+    monkeypatch.setattr(srv, "OUTPUT_DIR", str(tmp_path))
     lm = np.ones((2, 33, 4), dtype=np.float32)
     lm[0, 0, 0] = np.nan
-    monkeypatch.setattr(srv, "load_or_extract_landmarks", lambda video: lm)
+    np.save(srv.landmarks_npy_path("PopUpLateral.mov"), lm)
     resp = client.get("/api/landmarks/PopUpLateral.mov")
     assert resp.status_code == 200
     data = resp.get_json()
@@ -75,13 +78,13 @@ def test_landmarks_nan_serializes_as_null(client, monkeypatch):
     assert data["landmarks"][0][0][1] == 1.0        # non-NaN preserved
 
 
-def test_worldlandmarks_shape_and_nan(client, monkeypatch):
+def test_worldlandmarks_shape_and_nan(client, tmp_path, monkeypatch):
     import numpy as np
     import webtool.server as srv
-    # Monkeypatch para NO disparar la extracción real (lenta, necesita el modelo).
+    monkeypatch.setattr(srv, "OUTPUT_DIR", str(tmp_path))
     world = np.ones((2, 33, 4), dtype=np.float32)
     world[0, 0, 0] = np.nan
-    monkeypatch.setattr(srv, "load_or_extract_world", lambda video: world)
+    np.save(srv.worldlandmarks_npy_path("PopUpLateral.mov"), world)
     resp = client.get("/api/worldlandmarks/PopUpLateral.mov")
     assert resp.status_code == 200
     data = resp.get_json()
@@ -143,3 +146,50 @@ def test_sequence_empty_default(client, tmp_path, monkeypatch):
     monkeypatch.setattr(srv, "OUTPUT_DIR", str(tmp_path))
     got = client.get("/api/sequence/PopUpLateral.mov").get_json()
     assert got["steps"] == []
+
+
+def test_library_roundtrip(client, tmp_path, monkeypatch):
+    import webtool.server as srv
+    # LIBRARY_PATH se computa al importar: parchear el path, no OUTPUT_DIR.
+    monkeypatch.setattr(srv, "LIBRARY_PATH", str(tmp_path / "library.json"))
+    monkeypatch.setattr(srv, "OUTPUT_DIR", str(tmp_path))
+    got = client.get("/api/library").get_json()
+    assert got["videos"] == {}
+    assert "pop-up" in got["maniobras"]
+
+    payload = {"videos": {"PopUpLateral.mov":
+                          {"maniobra": "pop-up", "persona": "Jesu", "rol": "alumno"}}}
+    post = client.post("/api/library", json=payload)
+    assert post.status_code == 200
+    assert post.get_json()["ok"] is True
+
+    got = client.get("/api/library").get_json()
+    assert got["videos"]["PopUpLateral.mov"]["rol"] == "alumno"
+    assert "maniobras" in got   # taxonomía por defecto se agrega al guardar
+
+
+def test_library_post_rejects_malformed(client, tmp_path, monkeypatch):
+    import webtool.server as srv
+    monkeypatch.setattr(srv, "LIBRARY_PATH", str(tmp_path / "library.json"))
+    assert client.post("/api/library", json=[1, 2]).status_code == 400
+    assert client.post("/api/library", json={"videos": "no-dict"}).status_code == 400
+
+
+def test_worldlandmarks_smooth_param(client, tmp_path, monkeypatch):
+    import numpy as np
+    import webtool.server as srv
+    monkeypatch.setattr(srv, "OUTPUT_DIR", str(tmp_path))
+    n = 40
+    rng = np.random.default_rng(0)
+    world = rng.normal(size=(n, 33, 4)).astype(np.float32)
+    world[:, :, 3] = 1.0
+    np.save(srv.worldlandmarks_npy_path("PopUpLateral.mov"), world)
+
+    raw = client.get("/api/worldlandmarks/PopUpLateral.mov").get_json()
+    sm = client.get("/api/worldlandmarks/PopUpLateral.mov?smooth=1").get_json()
+    assert raw["n_frames"] == sm["n_frames"] == n
+    xs_raw = [raw["landmarks"][f][0][0] for f in range(n)]
+    xs_sm = [sm["landmarks"][f][0][0] for f in range(n)]
+    assert xs_raw != xs_sm                      # el suavizado cambió la serie
+    jitter = lambda xs: sum(abs(xs[i + 1] - xs[i]) for i in range(n - 1))
+    assert jitter(xs_sm) < jitter(xs_raw)       # y de verdad la alisa

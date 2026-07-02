@@ -88,6 +88,7 @@
       <a class="tab" href="/"><span class="ic">✎</span> Etiquetar</a>
       <a class="tab" href="/compare"><span class="ic">⇄</span> Comparar</a>
       <a class="tab" href="/sequence" aria-current="page"><span class="ic">▦</span> Secuencia</a>
+      <a class="tab" href="/pose3d"><span class="ic">◈</span> 3D</a>
     </div>
     <span class="nav-spacer"></span>
     <span class="nav-hint">storyboard de poses clave · profesor vs. alumno</span>
@@ -106,6 +107,10 @@
     <button id="autoBtn" title="muestrear N pasos equiespaciados">auto-muestrear</button>
     <label title="rellenar por interpolación los puntos ocluidos"><input type="checkbox" id="fillToggle" checked> rellenar oclusiones</label>
     <label title="ángulos por paso + Δ profe vs alumno"><input type="checkbox" id="metricsToggle" checked> métricas</label>
+    <details class="mpick" id="metricsPick">
+      <summary title="elegir qué métricas ver">métricas ▾</summary>
+      <div class="mpickList"></div>
+    </details>
     <span class="grow"></span>
     <button id="saveBtn" class="primary">guardar</button>
     <button id="exportBtn">⬇ exportar PNG</button>
@@ -148,6 +153,8 @@
       <div class="modalTools">
         <span class="modalTitle" id="mTitle"></span>
         <button id="mDraw" class="active">✎ dibujar</button>
+        <button id="mArrow" title="flecha (arrastrar del origen a la punta)">↗ flecha</button>
+        <button id="mText" title="texto (clic y escribir, Enter confirma)">T texto</button>
         <button id="mFix" title="arrastrar puntos a su lugar">✥ corregir</button>
         <span class="sep"></span>
         <button id="mUndo">undo</button>
@@ -163,6 +170,8 @@
     </div>
   </div>
 
+  <script src="/static/api.js"></script>
+  <script src="/static/draw.js"></script>
   <script src="/static/metrics.js"></script>
   <script src="/static/occlusion.js"></script>
   <script src="/static/sequence.js"></script>

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import threading
 
 import cv2
 import numpy as np
@@ -15,6 +16,7 @@ from flask import (Flask, Response, abort, jsonify, request, send_file,
                    send_from_directory)
 from webtool.frames import FrameReader
 from src import pose
+from src.smoothing import smooth_landmarks
 
 RAW_DIR = "data/raw"
 OUTPUT_DIR = "data/output"
@@ -70,27 +72,63 @@ def sequence_path(video: str) -> str:
     return os.path.join(OUTPUT_DIR, f"{stem}_sequence.json")
 
 
-def load_or_extract_landmarks(video: str) -> np.ndarray:
-    npy = landmarks_npy_path(video)
-    if os.path.isfile(npy):
-        return np.load(npy)
-    lm, _ = pose.extract_landmarks(os.path.join(RAW_DIR, video))
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    np.save(npy, lm)
-    return lm
+# Librería de videos: tags {maniobra, persona, rol} por video + taxonomía editable.
+LIBRARY_PATH = os.path.join(OUTPUT_DIR, "library.json")
+DEFAULT_MANIOBRAS = [
+    "pop-up", "carving", "bottom-turn", "cutback", "snap", "backside",
+    "rotación hombros", "rotación un pie", "flutter", "otro",
+]
 
 
-def load_or_extract_world(video: str) -> np.ndarray:
-    """World landmarks 3D (métricos). Si falta el npy, extrae AMBOS (2d+world) en una
-    sola pasada y los guarda. Extracción heavy = lenta; pre-generar con extract_world.py."""
-    wnpy = worldlandmarks_npy_path(video)
-    if os.path.isfile(wnpy):
-        return np.load(wnpy)
-    lm, world, _ = pose.extract_pose(os.path.join(RAW_DIR, video))
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    np.save(landmarks_npy_path(video), lm)
-    np.save(wnpy, world)
-    return world
+# --- Extracción de pose en background ---------------------------------------
+# La extracción de MediaPipe es heavy (5-16 min por video). NUNCA correrla dentro
+# de un request handler: bloquea el server entero (threaded pero el GIL + el trabajo
+# CPU-bound cuelga a todos). En su lugar: un thread daemon la corre, el endpoint
+# responde 202 "processing" y el frontend pollea hasta que el .npy aparece.
+_jobs: dict[str, str] = {}          # video -> "processing" | "done" | "error:<msg>"
+_jobs_lock = threading.Lock()       # protege _jobs
+_extract_lock = threading.Lock()    # serializa la extracción (1 a la vez, sin thrash)
+
+
+def _extract_worker(video: str) -> None:
+    """Corre en un thread daemon: extrae 2d+world en UNA pasada y guarda ambos npy."""
+    try:
+        with _extract_lock:  # una extracción a la vez
+            # Re-check: otro job pudo haberlo generado mientras esperábamos el lock.
+            if os.path.isfile(landmarks_npy_path(video)) and \
+                    os.path.isfile(worldlandmarks_npy_path(video)):
+                with _jobs_lock:
+                    _jobs[video] = "done"
+                return
+            lm, world, _ = pose.extract_pose(os.path.join(RAW_DIR, video))
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
+            np.save(landmarks_npy_path(video), lm)
+            np.save(worldlandmarks_npy_path(video), world)
+        with _jobs_lock:
+            _jobs[video] = "done"
+    except Exception as e:  # noqa: BLE001 — reportar cualquier fallo al frontend
+        with _jobs_lock:
+            _jobs[video] = f"error:{e}"
+
+
+def start_extraction(video: str) -> str:
+    """Asegura que la extracción de `video` esté en curso o hecha (sin bloquear).
+
+    Devuelve: "ready" si el npy ya existe, "processing" si hay job en curso, o
+    "error:<msg>" si el último job falló. Idempotente: no duplica jobs.
+    """
+    if os.path.isfile(landmarks_npy_path(video)) and \
+            os.path.isfile(worldlandmarks_npy_path(video)):
+        return "ready"
+    with _jobs_lock:
+        st = _jobs.get(video, "")
+        if st == "processing":
+            return "processing"
+        if st.startswith("error:"):
+            return st  # el frontend decide; se puede reintentar borrando el estado
+        _jobs[video] = "processing"
+    threading.Thread(target=_extract_worker, args=(video,), daemon=True).start()
+    return "processing"
 
 
 def clean_landmarks(lm: np.ndarray) -> list:
@@ -155,6 +193,10 @@ def create_app() -> Flask:
     def sequence():
         return send_from_directory(STATIC_DIR, "sequence.html")
 
+    @app.get("/pose3d")
+    def pose3d():
+        return send_from_directory(STATIC_DIR, "pose3d.html")
+
     @app.get("/static/<path:filename>")
     def static_files(filename: str):
         return send_from_directory(STATIC_DIR, filename)
@@ -167,23 +209,62 @@ def create_app() -> Flask:
     def api_meta(video: str):
         path = video_path(video)
         meta = read_meta(path)
-        meta["has_landmarks"] = os.path.isfile(landmarks_npy_path(video))
+        has_lm = os.path.isfile(landmarks_npy_path(video))
+        meta["has_landmarks"] = has_lm
+        # meta se pide primero en los 3 flujos: arrancar ya la extracción si falta,
+        # así el primer poll de /api/landmarks suele encontrarla en curso.
+        if not has_lm:
+            start_extraction(video)
         return jsonify(meta)
 
     @app.get("/api/landmarks/<video>")
     def api_landmarks(video: str):
         video_path(video)  # valida existencia / 404
-        lm = load_or_extract_landmarks(video)
-        clean = clean_landmarks(lm)  # NaN -> None para JSON válido
-        return jsonify(landmarks=clean, n_frames=len(clean))
+        npy = landmarks_npy_path(video)
+        if os.path.isfile(npy):
+            clean = clean_landmarks(np.load(npy))  # NaN -> None para JSON válido
+            return jsonify(landmarks=clean, n_frames=len(clean))
+        # Falta el npy: extraer en background y responder 202 (el frontend pollea).
+        st = start_extraction(video)
+        if st.startswith("error:"):
+            return jsonify(status="error", error=st[len("error:"):]), 500
+        return jsonify(status="processing"), 202
 
     @app.get("/api/worldlandmarks/<video>")
     def api_worldlandmarks(video: str):
         # Landmarks world 3D (métricos, metros, origen en cadera) para ángulos articulares 3D.
         video_path(video)  # valida existencia / 404
-        world = load_or_extract_world(video)
-        clean = clean_landmarks(world)
-        return jsonify(landmarks=clean, n_frames=len(clean))
+        wnpy = worldlandmarks_npy_path(video)
+        if os.path.isfile(wnpy):
+            arr = np.load(wnpy)
+            # ?smooth=1: Savitzky-Golay al servir (anti-wobble del eje z monocular,
+            # lo usa el viewer 3D). El npy crudo queda intacto.
+            if request.args.get("smooth") == "1":
+                arr = smooth_landmarks(arr)
+            clean = clean_landmarks(arr)
+            return jsonify(landmarks=clean, n_frames=len(clean))
+        st = start_extraction(video)
+        if st.startswith("error:"):
+            return jsonify(status="error", error=st[len("error:"):]), 500
+        return jsonify(status="processing"), 202
+
+    @app.get("/api/library")
+    def api_get_library():
+        if os.path.isfile(LIBRARY_PATH):
+            with open(LIBRARY_PATH) as f:
+                return jsonify(json.load(f))
+        return jsonify(videos={}, maniobras=DEFAULT_MANIOBRAS)
+
+    @app.post("/api/library")
+    def api_post_library():
+        data = request.get_json(force=True, silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get("videos"), dict):
+            abort(400)
+        data.setdefault("maniobras", DEFAULT_MANIOBRAS)
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        with open(LIBRARY_PATH, "w") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        return jsonify(ok=True)
 
     @app.get("/api/annotations/<video>")
     def api_get_annotations(video: str):

@@ -48,6 +48,7 @@ function createPane(root) {
   let _frameSeq = 0;        // descarta paints de frames viejos (navegación rápida)
   let dragIdx = null;       // landmark en arrastre (o null)
   let penStroke = null;     // trazo activo (o null)
+  let tempArrow = null;     // flecha en arrastre {x1,y1,x2,y2} (px) o null
   let anglePts = [];        // clicks A,B,C acumulados (px)
   let _playToken = 0;       // cancela el loop de play en curso (pausa / nuevo play)
   let hovered = false;      // el mouse está sobre este pane (para teclado)
@@ -112,16 +113,17 @@ function createPane(root) {
     for (const m of pane.metrics) {
       const chip = document.createElement("span");
       chip.className = "chip";
-      const v3 = m.isTilt ? "" : ` <span class="lbl">3D</span><span class="val">${fmtMetric(m.v3d)}</span>`;
+      const v3 = m.isTilt ? "" : ` <span class="lbl">3D</span><span class="val">${fmtMetric(m.v3d, m.unit)}</span>`;
       chip.innerHTML =
         `<span class="lbl">${m.label}</span><span class="lbl">2D</span>` +
-        `<span class="val">${fmtMetric(m.v2d)}</span>${v3}`;
+        `<span class="val">${fmtMetric(m.v2d, m.unit)}</span>${v3}`;
       els.metricsPanel.appendChild(chip);
     }
   }
   function updateMetrics() {
     pane.metrics = state.meta
-      ? computeMetricsBoth(metricResolver2D(), metricResolver3D()) : [];
+      ? filterSelectedMetrics(computeMetricsBoth(metricResolver2D(), metricResolver3D()))
+      : [];
     renderMetricsPanel();
     if (pane.onMetrics) pane.onMetrics(pane.metrics);
   }
@@ -195,16 +197,11 @@ function createPane(root) {
   }
 
   // ── Carga de videos ──────────────────────────────────────────────────────────
-  async function loadVideos() {
+  async function loadVideos(lib) {
     try {
       const r = await fetch("/api/videos");
       const { videos } = await r.json();
-      els.videoSelect.innerHTML = "";
-      for (const v of videos) {
-        const opt = document.createElement("option");
-        opt.value = opt.textContent = v;
-        els.videoSelect.appendChild(opt);
-      }
+      populateVideoSelect(els.videoSelect, videos, lib || await loadLibrary());
       return videos;
     } catch (err) {
       els.status.textContent = "error cargando: " + err.message;
@@ -218,12 +215,13 @@ function createPane(root) {
       state.video = video;
       els.videoSelect.value = video;
       state.meta = await (await fetch(`/api/meta/${encodeURIComponent(video)}`)).json();
-      const lr = await fetch(`/api/landmarks/${encodeURIComponent(video)}`);
-      state.landmarks = (await lr.json()).landmarks;
-      // world landmarks 3D (para métricas 3D); puede tardar si aún no está en disco.
+      state.landmarks = await loadLandmarks(video, {
+        onWait: () => { els.status.textContent = "procesando pose…"; },
+      });
+      els.status.textContent = "";
+      // world landmarks 3D (para métricas 3D); el npy ya se generó junto al 2D.
       try {
-        state.world = (await (await fetch(
-          `/api/worldlandmarks/${encodeURIComponent(video)}`)).json()).landmarks;
+        state.world = await loadLandmarks(video, { world: true });
       } catch (e) { state.world = null; }
       // Clamp n_frames a la cantidad real de landmarks (CAP_PROP_FRAME_COUNT
       // sobre-reporta en .MOV de iPhone). Guard: no clampear si está vacío.
@@ -394,7 +392,10 @@ function createPane(root) {
         octx.beginPath(); octx.arc(p.x, p.y, 4, 0, 2 * Math.PI); octx.fill();
       }
     }
-    if (state.balanceOn) drawBalance(octx, (i) => getPoint(state.frame, i));
+    if (state.balanceOn) {
+      drawBalance(octx, (i) => getPoint(state.frame, i));
+      drawWeightBars(octx, (i) => getPoint(state.frame, i));
+    }
   }
 
   function angleDeg(a, b, c) {
@@ -423,18 +424,11 @@ function createPane(root) {
   }
 
   function drawPenStrokes() {
-    const strokes = state.annotations?.drawings?.[state.frame] || [];
-    octx.lineWidth = 3;
-    octx.lineCap = "round";
-    for (const s of strokes) {
-      octx.strokeStyle = s.color || PEN_COLOR;
-      octx.beginPath();
-      s.stroke.forEach((p, i) => {
-        const x = p[0] * overlay.width, y = p[1] * overlay.height;
-        if (i === 0) octx.moveTo(x, y); else octx.lineTo(x, y);
-      });
-      octx.stroke();
-    }
+    drawAnnotationItems(octx, state.annotations?.drawings?.[state.frame],
+                        overlay.width, overlay.height);
+    if (tempArrow)   // preview de la flecha en arrastre
+      drawArrowShape(octx, tempArrow.x1, tempArrow.y1, tempArrow.x2, tempArrow.y2,
+                     PEN_COLOR, annotLineWidth(overlay.height) * 1.2);
   }
 
   function redrawOverlay() {
@@ -581,11 +575,56 @@ function createPane(root) {
     penStroke.stroke.push([p.x / overlay.width, p.y / overlay.height]);
     redrawOverlay();
   });
+  // flecha (drag: origen → punta)
+  overlay.addEventListener("mousedown", (e) => {
+    if (state.tool !== "arrow") return;
+    const p = evtPos(e);
+    tempArrow = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+  });
+  overlay.addEventListener("mousemove", (e) => {
+    if (state.tool !== "arrow" || !tempArrow) return;
+    const p = evtPos(e);
+    tempArrow.x2 = p.x; tempArrow.y2 = p.y;
+    redrawOverlay();
+  });
+
+  // texto (click → input flotante; Enter confirma)
+  overlay.addEventListener("click", (e) => {
+    if (state.tool !== "text") return;
+    const p = evtPos(e);
+    const frameEl = overlay.parentElement;   // .frame (position:relative)
+    const r = frameEl.getBoundingClientRect();
+    spawnTextInput(frameEl, e.clientX - r.left, e.clientY - r.top, (text) => {
+      const f = state.frame;
+      state.annotations.drawings[f] = state.annotations.drawings[f] || [];
+      state.annotations.drawings[f].push({
+        tool: "text",
+        pos: [p.x / overlay.width, p.y / overlay.height],
+        text, color: PEN_COLOR,
+      });
+      redrawOverlay();
+    });
+  });
+
   window.addEventListener("mouseup", () => {
     if (dragIdx !== null) {            // terminó un arrastre de corrección → propagar
       recomputeFilled();
       redrawOverlay();
       updateMetrics();
+    }
+    if (tempArrow) {                   // terminó una flecha → persistir si no es un click
+      if (Math.hypot(tempArrow.x2 - tempArrow.x1, tempArrow.y2 - tempArrow.y1) > 8) {
+        const f = state.frame;
+        state.annotations.drawings[f] = state.annotations.drawings[f] || [];
+        state.annotations.drawings[f].push({
+          tool: "arrow",
+          from: [tempArrow.x1 / overlay.width, tempArrow.y1 / overlay.height],
+          to:   [tempArrow.x2 / overlay.width, tempArrow.y2 / overlay.height],
+          color: PEN_COLOR,
+        });
+      }
+      tempArrow = null;
+      redrawOverlay();
     }
     dragIdx = null; penStroke = null;
   });
@@ -650,6 +689,7 @@ function createPane(root) {
   // API pública del pane (para compare.js)
   Object.assign(pane, {
     loadVideos, load, goTo, step, play, pause, togglePlay, setFill, setBalance,
+    refreshMetrics: updateMetrics,
     getVideo: () => state.video,
   });
   return pane;

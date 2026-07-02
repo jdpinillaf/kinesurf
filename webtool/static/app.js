@@ -34,30 +34,74 @@ const els = {
   status: document.getElementById("status"),
 };
 
+let videoList = [];                         // lista plana (para repoblar el select)
+let library = { videos: {}, maniobras: [] };  // tags maniobra/persona/rol (api.js)
+
 async function loadVideos() {
   try {
     const r = await fetch("/api/videos");
     const { videos } = await r.json();
-    els.videoSelect.innerHTML = "";
-    for (const v of videos) {
-      const opt = document.createElement("option");
-      opt.value = opt.textContent = v;
-      els.videoSelect.appendChild(opt);
-    }
+    videoList = videos;
+    library = await loadLibrary();
+    populateVideoSelect(els.videoSelect, videos, library);
     if (videos.length) await selectVideo(videos[0]);
   } catch (err) {
     els.status.textContent = "error cargando: " + err.message;
   }
 }
 
+// ── Editor de tags del video actual (librería: maniobra / persona / rol) ─────
+const tagEls = {
+  box: document.getElementById("tagEdit"),
+  maniobra: document.getElementById("tagManiobra"),
+  persona: document.getElementById("tagPersona"),
+  rol: document.getElementById("tagRol"),
+  save: document.getElementById("tagSave"),
+};
+
+function fillTagForm() {
+  tagEls.maniobra.innerHTML = '<option value="">—</option>';
+  for (const m of library.maniobras || []) {
+    const o = document.createElement("option");
+    o.value = o.textContent = m;
+    tagEls.maniobra.appendChild(o);
+  }
+  const t = (library.videos || {})[state.video] || {};
+  tagEls.maniobra.value = t.maniobra || "";
+  tagEls.persona.value = t.persona || "";
+  tagEls.rol.value = t.rol || "";
+}
+tagEls.box.addEventListener("toggle", () => { if (tagEls.box.open) fillTagForm(); });
+
+tagEls.save.addEventListener("click", async () => {
+  if (!state.video) return;
+  library.videos = library.videos || {};
+  const t = {
+    maniobra: tagEls.maniobra.value || undefined,
+    persona: tagEls.persona.value.trim() || undefined,
+    rol: tagEls.rol.value || undefined,
+  };
+  if (!t.maniobra && !t.persona && !t.rol) delete library.videos[state.video];
+  else library.videos[state.video] = t;
+  const ok = await saveLibrary(library);
+  els.status.textContent = ok ? "tag guardado ✓" : "error";
+  setTimeout(() => (els.status.textContent = ""), 2000);
+  populateVideoSelect(els.videoSelect, videoList, library);   // reagrupar el select
+  els.videoSelect.value = state.video;
+  tagEls.box.open = false;
+});
+
 async function selectVideo(video) {
   if (state.playing) pause();   // cortar loop antes de cambiar de video
   try {
     state.video = video;
+    els.videoSelect.value = video;   // con optgroups, el 1er option ya no es videos[0]
     const r = await fetch(`/api/meta/${encodeURIComponent(video)}`);
     state.meta = await r.json();
-    const lr = await fetch(`/api/landmarks/${encodeURIComponent(video)}`);
-    state.landmarks = (await lr.json()).landmarks;
+    state.landmarks = await loadLandmarks(video, {
+      onWait: () => { els.status.textContent = "procesando pose… (puede tardar minutos la 1ª vez)"; },
+    });
+    els.status.textContent = "";
     // Clamp navigable frame count to landmarks length.
     // iPhone .MOV files cause CAP_PROP_FRAME_COUNT to overestimate the
     // actual readable frames; MediaPipe only produces landmarks for the
@@ -194,7 +238,10 @@ function drawSkeleton() {
       octx.beginPath(); octx.arc(p.x, p.y, 4, 0, 2 * Math.PI); octx.fill();
     }
   }
-  if (state.balanceOn) drawBalance(octx, (i) => getPoint(state.frame, i));
+  if (state.balanceOn) {
+    drawBalance(octx, (i) => getPoint(state.frame, i));
+    drawWeightBars(octx, (i) => getPoint(state.frame, i));
+  }
 }
 
 function redrawOverlay() {
@@ -350,7 +397,56 @@ overlay.addEventListener("mousemove", (e) => {
   redrawOverlay();
 });
 
-window.addEventListener("mouseup", () => { penStroke = null; });
+// ── Herramienta flecha (drag: origen → punta) ────────────────────────────────
+let tempArrow = null;   // {x1,y1,x2,y2} en px del canvas, o null
+
+overlay.addEventListener("mousedown", (e) => {
+  if (state.tool !== "arrow") return;
+  const p = evtPos(e);
+  tempArrow = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+});
+overlay.addEventListener("mousemove", (e) => {
+  if (state.tool !== "arrow" || !tempArrow) return;
+  const p = evtPos(e);
+  tempArrow.x2 = p.x; tempArrow.y2 = p.y;
+  redrawOverlay();
+});
+
+// ── Herramienta texto (click → input flotante; Enter confirma) ───────────────
+overlay.addEventListener("click", (e) => {
+  if (state.tool !== "text") return;
+  const p = evtPos(e);
+  const frameEl = overlay.parentElement;   // .frame (position:relative)
+  const r = frameEl.getBoundingClientRect();
+  spawnTextInput(frameEl, e.clientX - r.left, e.clientY - r.top, (text) => {
+    const f = state.frame;
+    state.annotations.drawings[f] = state.annotations.drawings[f] || [];
+    state.annotations.drawings[f].push({
+      tool: "text",
+      pos: [p.x / overlay.width, p.y / overlay.height],
+      text, color: PEN_COLOR,
+    });
+    redrawOverlay();
+  });
+});
+
+window.addEventListener("mouseup", () => {
+  if (tempArrow) {                   // terminó una flecha → persistir si no es un click
+    if (Math.hypot(tempArrow.x2 - tempArrow.x1, tempArrow.y2 - tempArrow.y1) > 8) {
+      const f = state.frame;
+      state.annotations.drawings[f] = state.annotations.drawings[f] || [];
+      state.annotations.drawings[f].push({
+        tool: "arrow",
+        from: [tempArrow.x1 / overlay.width, tempArrow.y1 / overlay.height],
+        to:   [tempArrow.x2 / overlay.width, tempArrow.y2 / overlay.height],
+        color: PEN_COLOR,
+      });
+    }
+    tempArrow = null;
+    redrawOverlay();
+  }
+  penStroke = null;
+});
 
 // ── Herramienta de ángulo manual (3 clicks: A, vértice B, C) ─────────────────
 let anglePts = [];   // acumula clicks A,B,C en px
@@ -384,18 +480,11 @@ function drawAngles() {
 const PEN_COLOR = "#f33";
 
 function drawPenStrokes() {
-  const strokes = state.annotations.drawings[state.frame] || [];
-  octx.lineWidth = 3;
-  octx.lineCap = "round";
-  for (const s of strokes) {
-    octx.strokeStyle = s.color || PEN_COLOR;
-    octx.beginPath();
-    s.stroke.forEach((p, i) => {
-      const x = p[0] * overlay.width, y = p[1] * overlay.height;
-      if (i === 0) octx.moveTo(x, y); else octx.lineTo(x, y);
-    });
-    octx.stroke();
-  }
+  drawAnnotationItems(octx, state.annotations?.drawings?.[state.frame],
+                      overlay.width, overlay.height);
+  if (tempArrow)   // preview de la flecha en arrastre
+    drawArrowShape(octx, tempArrow.x1, tempArrow.y1, tempArrow.x2, tempArrow.y2,
+                   PEN_COLOR, annotLineWidth(overlay.height) * 1.2);
 }
 
 overlay.addEventListener("click", (e) => {

@@ -109,19 +109,9 @@ function repOf(mode) { return mode === "skeleton" ? "skeleton" : "frame"; }
 function noteKey(mode, f) { return repOf(mode) + ":" + f; }
 function noteFor(col, mode, f) { return col.notes ? col.notes[noteKey(mode, f)] : undefined; }
 
-// Pinta una lista de trazos normalizados (0-1) sobre ctx WxH.
+// Pinta anotaciones normalizadas (lápiz/flecha/texto) sobre ctx WxH (draw.js).
 function paintStrokes(ctx, strokes, W, H) {
-  if (!strokes) return;
-  ctx.lineWidth = 3; ctx.lineCap = "round";
-  for (const s of strokes) {
-    ctx.strokeStyle = s.color || "#f33";
-    ctx.beginPath();
-    s.stroke.forEach((p, i) => {
-      const x = p[0] * W, y = p[1] * H;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  }
+  drawAnnotationItems(ctx, strokes, W, H);
 }
 
 let viewMode = "skeleton";   // "skeleton" | "frame" | "both" | "split"
@@ -137,7 +127,7 @@ function metricsFor(col, f) {
   const La = colLm(col);
   const r2 = makeResolver(La[f], col.meta.width, col.meta.height);
   const r3 = makeResolver3D(col.world ? col.world[f] : null);
-  return computeMetricsBoth(r2, r3);
+  return filterSelectedMetrics(computeMetricsBoth(r2, r3));
 }
 
 // Bloque .cellMetrics de una celda. Cada familia articular muestra 2D y 3D; las
@@ -157,10 +147,11 @@ function cellMetricsEl(spec, i, f) {
     const part = (tag, mine_v, prof_v) => {
       let dHtml = "";
       if (isStudent && p) {
-        const d = fmtDelta(prof_v, mine_v);
-        if (d) dHtml = ` <span class="md ${deltaClass(prof_v, mine_v)}">${d}</span>`;
+        const d = fmtDelta(prof_v, mine_v, m.unit);
+        const th = m.unit === "%" ? 10 : 15;
+        if (d) dHtml = ` <span class="md ${deltaClass(prof_v, mine_v, th)}">${d}</span>`;
       }
-      return `<span class="mt">${tag}</span><span class="mv">${fmtMetric(mine_v)}${dHtml}</span>`;
+      return `<span class="mt">${tag}</span><span class="mv">${fmtMetric(mine_v, m.unit)}${dHtml}</span>`;
     };
     const row = document.createElement("div");
     row.className = "m";
@@ -311,7 +302,10 @@ function makeCol(rootId) {
     c.video = video;
     c.els.videoSelect.value = video;
     c.meta = await (await fetch(`/api/meta/${encodeURIComponent(video)}`)).json();
-    c.lm = (await (await fetch(`/api/landmarks/${encodeURIComponent(video)}`)).json()).landmarks;
+    c.lm = await loadLandmarks(video, {
+      onWait: () => { els.status.textContent = "procesando pose…"; },
+    });
+    els.status.textContent = "";
     // correcciones manuales por video (hechas en /etiquetar o /compare) → anclas del relleno
     const ann = await (await fetch(`/api/annotations/${encodeURIComponent(video)}`)).json();
     ann.corrections = ann.corrections || {};
@@ -319,7 +313,7 @@ function makeCol(rootId) {
     c.corrections = ann.corrections;
     c.filled = fillOcclusions(c.lm, c.corrections);
     try {
-      c.world = (await (await fetch(`/api/worldlandmarks/${encodeURIComponent(video)}`)).json()).landmarks;
+      c.world = await loadLandmarks(video, { world: true });
     } catch (e) { c.world = null; }
     c.clips = (await (await fetch(`/api/clips/${encodeURIComponent(video)}`)).json()).clips || [];
     const seq = await (await fetch(`/api/sequence/${encodeURIComponent(video)}`)).json();
@@ -461,6 +455,7 @@ document.getElementById("metricsToggle").addEventListener("change", (e) => {
   showMetrics = e.target.checked;
   renderInfographic();
 });
+initMetricsPicker(() => renderInfographic());
 document.getElementById("fillToggle").addEventListener("change", (e) => {
   showFill = e.target.checked;
   colA.drawPreview(); colB.drawPreview();
@@ -487,7 +482,10 @@ async function exportPNG() {
   els.status.textContent = "exportando…";
 
   const CELL = 220, PAD = 16, LBL = 90, GAP = 10, TITLE = 38, FNUM = 22;
-  const MH = showMetrics ? 112 : 0;   // alto extra para las líneas de métricas (2D + 3D)
+  // alto extra para las métricas: 1 línea por métrica de inclinación, 2 (2D+3D) por articular
+  const TWO_LINE = new Set(["knee", "hip", "elbow", "stack"]);
+  const mLines = selectedMetricKeys().reduce((n, k) => n + (TWO_LINE.has(k) ? 2 : 1), 0);
+  const MH = showMetrics ? Math.max(24, 10 + mLines * 11) : 0;
   const cw = (col) => Math.round(CELL * (col.meta ? col.meta.width / col.meta.height : 0.5625));
   const colW = Math.max(cw(colA), cw(colB));
   const rowH = CELL + FNUM + MH;
@@ -497,8 +495,8 @@ async function exportPNG() {
   const big = document.createElement("canvas");
   big.width = W; big.height = H;
   const ctx = big.getContext("2d");
-  ctx.fillStyle = "#15151b"; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = "#e8e8ee"; ctx.font = "bold 20px sans-serif";
+  ctx.fillStyle = "#faf9f6"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#1f2a33"; ctx.font = "bold 20px sans-serif";
   ctx.fillText(`Secuencia — ${colA.video}  vs  ${colB.video}`, PAD, 26);
 
   // pre-render de todas las celdas (async por los modos con video)
@@ -509,17 +507,17 @@ async function exportPNG() {
 
   const y0 = TITLE;
   rows.forEach((r, ri) => {
-    ctx.fillStyle = "#cdd3df"; ctx.font = "bold 16px sans-serif";
+    ctx.fillStyle = "#33424e"; ctx.font = "bold 16px sans-serif";
     ctx.fillText(r.label, PAD, y0 + ri * (rowH + GAP) + CELL / 2);
   });
   for (const { ri, i, cv, f } of cells) {
     const colLeft = PAD + LBL + i * (colW + GAP);
     const cx = colLeft + (colW - cv.width) / 2;
     const y = y0 + ri * (rowH + GAP);
-    ctx.fillStyle = "#1b1b22"; ctx.fillRect(cx, y, cv.width, CELL);
+    ctx.fillStyle = "#11161d"; ctx.fillRect(cx, y, cv.width, CELL);
     ctx.drawImage(cv, cx, y);
-    ctx.strokeStyle = "#3a3a44"; ctx.strokeRect(cx, y, cv.width, CELL);
-    ctx.fillStyle = "#aab"; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
+    ctx.strokeStyle = "#d2cec2"; ctx.strokeRect(cx, y, cv.width, CELL);
+    ctx.fillStyle = "#5b6b77"; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
     ctx.fillText(`f ${f}`, cx + cv.width / 2, y + CELL + 15);
     ctx.textAlign = "left";
     // métricas bajo la celda (solo filas primarias); Δ vs profe en filas de alumno
@@ -532,15 +530,15 @@ async function exportPNG() {
       if (prof) prof.forEach((m) => (pBy[m.key] = m));
       ctx.font = "10px sans-serif";
       let ty = y + CELL + FNUM;
-      const drawLine = (label, tag, mineV, profV) => {
-        ctx.fillStyle = "#aab";
-        const line = `${label} ${tag}: ${fmtMetric(mineV)}`;
+      const drawLine = (label, tag, mineV, profV, unit) => {
+        ctx.fillStyle = "#5b6b77";
+        const line = `${label} ${tag}: ${fmtMetric(mineV, unit)}`;
         ctx.fillText(line, colLeft, ty);
         if (isStu && profV != null && mineV != null) {
-          const d = fmtDelta(profV, mineV);
+          const d = fmtDelta(profV, mineV, unit);
           if (d) {
-            const cls = deltaClass(profV, mineV);
-            ctx.fillStyle = cls === "dx-far" ? "#f87171" : cls === "dx-near" ? "#34d399" : "#6b7b8a";
+            const cls = deltaClass(profV, mineV, unit === "%" ? 10 : 15);
+            ctx.fillStyle = cls === "dx-far" ? "#e76f51" : cls === "dx-near" ? "#2a9d8f" : "#8b99a4";
             ctx.fillText(" " + d, colLeft + ctx.measureText(line).width + 2, ty);
           }
         }
@@ -548,8 +546,8 @@ async function exportPNG() {
       };
       for (const m of mine) {
         const p = pBy[m.key];
-        drawLine(m.label, "2D", m.v2d, p && p.v2d);
-        if (!m.isTilt) drawLine(m.label, "3D", m.v3d, p && p.v3d);
+        drawLine(m.label, "2D", m.v2d, p && p.v2d, m.unit);
+        if (!m.isTilt) drawLine(m.label, "3D", m.v3d, p && p.v3d, m.unit);
       }
     }
   }
@@ -575,7 +573,11 @@ const modal = {
 const mbctx = modal.base.getContext("2d");
 const moctx = modal.overlay.getContext("2d");
 let mStroke = null;
+let mArrowTmp = null; // flecha en arrastre {x1,y1,x2,y2} (px) o null
 let mFixIdx = null;   // landmark en arrastre (modo corregir)
+
+// Herramientas del modal que editan anotaciones (vs "fix" que mueve landmarks).
+function mDrawLike(t) { return t === "draw" || t === "text" || t === "arrow"; }
 
 // Dibuja el contenido dinámico del overlay según el modo del modal.
 function drawModalDynamic() {
@@ -586,6 +588,9 @@ function drawModalDynamic() {
     drawSkeletonFrame(moctx, La ? La[modal.f] : null, W, H);
   } else {
     paintStrokes(moctx, modal.strokes, W, H);
+    if (mArrowTmp)   // preview de la flecha en arrastre
+      drawArrowShape(moctx, mArrowTmp.x1, mArrowTmp.y1, mArrowTmp.x2, mArrowTmp.y2,
+                     ANNOT_COLOR, annotLineWidth(H) * 1.2);
   }
 }
 function drawModalStrokes() { drawModalDynamic(); }   // compat
@@ -597,13 +602,13 @@ function renderModalBase() {
   const La = colLm(col);
   const lm = La ? La[f] : null;
   mbctx.clearRect(0, 0, W, H);
-  if (modal.tool === "draw" && mode === "skeleton") {
+  if (mDrawLike(modal.tool) && mode === "skeleton") {
     drawPose(mbctx, lm, W, H);
   } else {
     const img = new Image();
     img.onload = () => {
       mbctx.drawImage(img, 0, 0, W, H);
-      if (modal.tool === "draw" && mode === "both") drawSkeletonFrame(mbctx, lm, W, H);
+      if (mDrawLike(modal.tool) && mode === "both") drawSkeletonFrame(mbctx, lm, W, H);
     };
     img.src = `/api/frame/${encodeURIComponent(col.video)}/${f}`;
   }
@@ -625,12 +630,14 @@ function modalNearest(pos, maxDist = 18) {
   return best;
 }
 
-// Cambia el modo del modal (dibujar / corregir) y re-renderiza.
+// Cambia el modo del modal (dibujar / texto / flecha / corregir) y re-renderiza.
 function setModalTool(t) {
   modal.tool = t;
   document.getElementById("mDraw").classList.toggle("active", t === "draw");
+  document.getElementById("mText").classList.toggle("active", t === "text");
+  document.getElementById("mArrow").classList.toggle("active", t === "arrow");
   document.getElementById("mFix").classList.toggle("active", t === "fix");
-  modal.overlay.style.cursor = t === "fix" ? "move" : "crosshair";
+  modal.overlay.style.cursor = t === "fix" ? "move" : t === "text" ? "text" : "crosshair";
   renderModalBase();
   drawModalDynamic();
 }
@@ -685,10 +692,25 @@ function mPos(e) {
 
 modal.overlay.addEventListener("mousedown", (e) => {
   if (modal.tool === "fix") { mFixIdx = modalNearest(mPos(e)); return; }
-  mStroke = { stroke: [], color: "#f33" };
-  modal.strokes.push(mStroke);
   const p = mPos(e);
-  mStroke.stroke.push([p.x / modal.overlay.width, p.y / modal.overlay.height]);
+  const W = modal.overlay.width, H = modal.overlay.height;
+  if (modal.tool === "arrow") {
+    mArrowTmp = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+    return;
+  }
+  if (modal.tool === "text") {
+    // input flotante sobre el stage del modal; Enter confirma
+    const stage = modal.overlay.parentElement;   // .modalStage (position:relative)
+    const r = stage.getBoundingClientRect();
+    spawnTextInput(stage, e.clientX - r.left, e.clientY - r.top, (text) => {
+      modal.strokes.push({ tool: "text", pos: [p.x / W, p.y / H], text, color: ANNOT_COLOR });
+      drawModalStrokes();
+    });
+    return;
+  }
+  mStroke = { tool: "pen", stroke: [], color: ANNOT_COLOR };
+  modal.strokes.push(mStroke);
+  mStroke.stroke.push([p.x / W, p.y / H]);
 });
 modal.overlay.addEventListener("mousemove", (e) => {
   const W = modal.overlay.width, H = modal.overlay.height;
@@ -699,6 +721,12 @@ modal.overlay.addEventListener("mousemove", (e) => {
     col.corrections[f][mFixIdx] = [p.x / W, p.y / H];
     col.filled = fillOcclusions(col.lm, col.corrections);   // re-rellenar: propaga a vecinos
     drawModalDynamic();
+    return;
+  }
+  if (mArrowTmp) {
+    const p = mPos(e);
+    mArrowTmp.x2 = p.x; mArrowTmp.y2 = p.y;
+    drawModalStrokes();
     return;
   }
   if (!mStroke) return;
@@ -712,10 +740,25 @@ window.addEventListener("mouseup", async () => {
     await saveCorrections(modal.col);
     renderInfographic();   // refrescar celdas con la corrección + propagación
   }
+  if (mArrowTmp) {         // terminó una flecha → persistir si no es un click
+    const W = modal.overlay.width, H = modal.overlay.height;
+    if (Math.hypot(mArrowTmp.x2 - mArrowTmp.x1, mArrowTmp.y2 - mArrowTmp.y1) > 8) {
+      modal.strokes.push({
+        tool: "arrow",
+        from: [mArrowTmp.x1 / W, mArrowTmp.y1 / H],
+        to:   [mArrowTmp.x2 / W, mArrowTmp.y2 / H],
+        color: ANNOT_COLOR,
+      });
+    }
+    mArrowTmp = null;
+    drawModalStrokes();
+  }
   mStroke = null;
 });
 
 document.getElementById("mDraw").addEventListener("click", () => setModalTool("draw"));
+document.getElementById("mText").addEventListener("click", () => setModalTool("text"));
+document.getElementById("mArrow").addEventListener("click", () => setModalTool("arrow"));
 document.getElementById("mFix").addEventListener("click", () => setModalTool("fix"));
 document.getElementById("mUndo").addEventListener("click", () => {
   modal.strokes.pop(); drawModalStrokes();
@@ -750,16 +793,11 @@ function pick(videos, prefer, fallbackIdx) {
 
 async function init() {
   const { videos } = await (await fetch("/api/videos")).json();
-  for (const col of [colA, colB]) {
-    col.els.videoSelect.innerHTML = "";
-    for (const v of videos) {
-      const o = document.createElement("option");
-      o.value = o.textContent = v;
-      col.els.videoSelect.appendChild(o);
-    }
-  }
-  const vA = pick(videos, "profesor", 0);
-  const vB = pick(videos, "estudiante", 1);
+  const lib = await loadLibrary();
+  for (const col of [colA, colB])
+    populateVideoSelect(col.els.videoSelect, videos, lib);
+  const vA = pickByRole(videos, lib, "profesor") || pick(videos, "profesor", 0);
+  const vB = pickByRole(videos, lib, "alumno") || pick(videos, "estudiante", 1);
   if (vA) await colA.load(vA);
   if (vB) await colB.load(vB);
   renderInfographic();

@@ -135,17 +135,24 @@ function computeMetricsBoth(getPt2D, getPt3D) {
              v2d: xFactor(getPt2D), v3d: null });
   out.push({ key: "stack", label: "Apilado", isTilt: false,
              v2d: stackAngle(getPt2D), v3d: getPt3D ? stackAngle(getPt3D) : null });
+  // distribución de peso (estimada): % sobre el pie delantero (eje tabla) + lateral aprox.
+  const wd = weightDistribution(getPt2D, getPt3D);
+  out.push({ key: "weight", label: "Peso ~del", isTilt: true, unit: "%",
+             v2d: wd.valid ? wd.frontPct * 100 : null, v3d: null });
+  if (wd.valid && wd.lateralPct != null)
+    out.push({ key: "weight_lat", label: "Peso lat ~", isTilt: true, unit: "%",
+               v2d: wd.lateralPct * 100, v3d: null });
   return out;
 }
 
-function fmtMetric(v) { return v == null ? "—" : Math.round(v) + "°"; }
+function fmtMetric(v, unit = "°") { return v == null ? "—" : Math.round(v) + unit; }
 
 // Δ con signo (b − a). Se calcula sobre los valores YA redondeados para que los
 // números mostrados siempre cuadren (a, b y Δ coherentes). "" si falta algún valor.
-function fmtDelta(a, b) {
+function fmtDelta(a, b, unit = "°") {
   if (a == null || b == null) return "";
   const d = Math.round(b) - Math.round(a);
-  return (d > 0 ? "+" : "") + d + "°";
+  return (d > 0 ? "+" : "") + d + unit;
 }
 
 // Clase de color según la magnitud de la diferencia (umbral simple).
@@ -154,19 +161,180 @@ function deltaClass(a, b, thresh = 15) {
   return Math.abs(b - a) > thresh ? "dx-far" : "dx-near";
 }
 
-// ── Centro de masa + balance (lectura clave de un coach) ──────────────────────
-// ptOf(idx) -> {x,y} en PÍXELES del canvas (p.ej. getPoint del pane). Devuelve la
-// geometría de balance, o null si no hay tronco.
-function midPx(ptOf, i, j) {
-  const a = ptOf(i), b = ptOf(j);
-  if (!a || !b) return null;
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+// ── Selección de métricas visibles (picker "métricas ▾") ──────────────────────
+// El profesor elige qué métricas ver según la maniobra (p. ej. en carving importa
+// la inclinación de hombros; en pop-up el peso y la rodilla). Selección compartida
+// por las vistas y persistida en localStorage.
+const METRIC_CATALOG = [
+  { key: "weight",     label: "Peso ~del" },
+  { key: "weight_lat", label: "Peso lat ~" },
+  { key: "knee",       label: "Rodilla" },
+  { key: "hip",        label: "Cadera" },
+  { key: "elbow",      label: "Codo" },
+  { key: "sh_tilt",    label: "Inclin. hombros" },
+  { key: "hip_tilt",   label: "Inclin. caderas" },
+  { key: "xfactor",    label: "Rotación" },
+  { key: "stack",      label: "Apilado" },
+];
+const DEFAULT_METRIC_KEYS = ["weight", "knee", "stack"];
+const METRIC_SEL_LS = "surfMetricSelection";
+
+function selectedMetricKeys() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(METRIC_SEL_LS));
+    if (Array.isArray(raw))
+      return raw.filter((k) => METRIC_CATALOG.some((m) => m.key === k));
+  } catch (e) { /* selección corrupta → defaults */ }
+  return DEFAULT_METRIC_KEYS.slice();
 }
+
+function filterSelectedMetrics(list) {
+  const sel = new Set(selectedMetricKeys());
+  return list.filter((m) => sel.has(m.key));
+}
+
+// Monta las checkboxes dentro de <details id="metricsPick"> (si la vista lo tiene).
+function initMetricsPicker(onChange) {
+  const host = document.getElementById("metricsPick");
+  if (!host) return;
+  const listEl = host.querySelector(".mpickList");
+  const sel = new Set(selectedMetricKeys());
+  listEl.innerHTML = "";
+  for (const m of METRIC_CATALOG) {
+    const lab = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = sel.has(m.key);
+    cb.addEventListener("change", () => {
+      if (cb.checked) sel.add(m.key); else sel.delete(m.key);
+      const keys = METRIC_CATALOG.map((x) => x.key).filter((k) => sel.has(k));
+      localStorage.setItem(METRIC_SEL_LS, JSON.stringify(keys));
+      if (onChange) onChange();
+    });
+    lab.appendChild(cb);
+    lab.appendChild(document.createTextNode(" " + m.label));
+    listEl.appendChild(lab);
+  }
+}
+
+// ── Distribución de peso + centro de masa (lectura clave de un coach) ─────────
+// El peso NO se mide (pose monocular no da fuerza real); se ESTIMA por la posición del
+// centro de masa (CoM) sobre la base de sustentación (los pies). Proxy, no dinamómetro.
+//
+// Tuning (ajustar con videos reales):
+const SEG_MIN_ANKLE_SEP_PX = 25;   // sep. horizontal mín. de tobillos para % fiable
+const WEIGHT_BAR_MAX_PX = 90;      // altura de barra al 100% de carga
+const WEIGHT_DELTA_THRESH = 10;    // Δ de peso (puntos %) que se pinta "lejos"
+
+// Masas segmentarias (fracción del peso corporal) y ubicación del CoM del segmento
+// (fracción proximal→distal), tabla de Winter/Dempster. El tronco se calcula aparte
+// (usa puntos medios de hombros/caderas). [proxIdx, distIdx, comFrac, mass].
+const LIMB_SEGMENTS = [
+  [0, 0, 0, 0.081],        // cabeza+cuello → punto en la nariz
+  [15, 15, 0, 0.006], [16, 16, 0, 0.006],       // manos → en la muñeca
+  [11, 13, 0.436, 0.028], [12, 14, 0.436, 0.028], // brazo superior
+  [13, 15, 0.430, 0.016], [14, 16, 0.430, 0.016], // antebrazo
+  [23, 25, 0.433, 0.100], [24, 26, 0.433, 0.100], // muslo
+  [25, 27, 0.433, 0.0465], [26, 28, 0.433, 0.0465], // pierna
+  [27, 31, 0.5, 0.0145], [28, 32, 0.5, 0.0145],   // pie (tobillo→foot_index; fallback tobillo)
+];
+
+// Punto del CoM de un segmento; si falta el distal, cae al proximal (p.ej. pie sin
+// foot_index visible → tobillo). null si falta el proximal.
+function segCoMPoint(ptOf, pi, di, frac) {
+  const p = ptOf(pi);
+  if (!p) return null;
+  if (di === pi) return { x: p.x, y: p.y, z: p.z || 0 };
+  const d = ptOf(di);
+  if (!d) return { x: p.x, y: p.y, z: p.z || 0 };
+  return {
+    x: p.x + frac * (d.x - p.x), y: p.y + frac * (d.y - p.y),
+    z: (p.z || 0) + frac * ((d.z || 0) - (p.z || 0)),
+  };
+}
+
+// CoM de cuerpo completo por modelo segmentario. Normaliza sobre la masa de los segmentos
+// realmente visibles (robusto a oclusión). ptOf(idx) -> {x,y[,z]} (px 2D o metros world).
+// Devuelve {x,y,z} o null si no hay ningún segmento.
+function segmentalCoM(ptOf) {
+  let mx = 0, my = 0, mz = 0, M = 0;
+  const add = (pt, mass) => {
+    if (pt) { mx += mass * pt.x; my += mass * pt.y; mz += mass * (pt.z || 0); M += mass; }
+  };
+  // tronco (masa dominante): mid-hombros → mid-caderas, CoM al 50%.
+  const shL = ptOf(11), shR = ptOf(12), hL = ptOf(23), hR = ptOf(24);
+  if (shL && shR && hL && hR) {
+    const sh = { x: (shL.x + shR.x) / 2, y: (shL.y + shR.y) / 2, z: ((shL.z || 0) + (shR.z || 0)) / 2 };
+    const hip = { x: (hL.x + hR.x) / 2, y: (hL.y + hR.y) / 2, z: ((hL.z || 0) + (hR.z || 0)) / 2 };
+    add({ x: (sh.x + hip.x) / 2, y: (sh.y + hip.y) / 2, z: (sh.z + hip.z) / 2 }, 0.497);
+  }
+  for (const [pi, di, frac, mass] of LIMB_SEGMENTS) add(segCoMPoint(ptOf, pi, di, frac), mass);
+  if (M < 1e-6) return null;
+  return { x: mx / M, y: my / M, z: mz / M };
+}
+
+// Distribución de peso: front/back (2D, eje largo de la tabla) por proyección del CoM sobre
+// el segmento entre tobillos; lateral (3D world, aproximado) por offset perpendicular en el
+// plano de suelo. Devuelve {valid, frontPct, backPct, frontSide, front, back, com,
+// lateralPct, lateralSide}. front/back en [0,1]; lateralPct en [-1,1] (+toe/−heel).
+function weightDistribution(getPt2D, getPt3D) {
+  const com = segmentalCoM(getPt2D);
+  const aL = getPt2D(27), aR = getPt2D(28);
+  if (!com || !aL || !aR) return { valid: false };
+  if (Math.abs(aR.x - aL.x) < SEG_MIN_ANKLE_SEP_PX) return { valid: false }; // pies casi alineados
+  // pie delantero = tobillo hacia donde mira el surfista (nariz vs cadera media).
+  const nose = getPt2D(0), hL = getPt2D(23), hR = getPt2D(24);
+  const hipMidX = (hL && hR) ? (hL.x + hR.x) / 2 : (aL.x + aR.x) / 2;
+  const facing = nose ? Math.sign(nose.x - hipMidX) : 0;
+  let front, back, frontSide;
+  const rightIsFront = facing >= 0 ? aR.x >= aL.x : aL.x > aR.x;
+  if (rightIsFront) { front = aR; back = aL; frontSide = "der"; }
+  else { front = aL; back = aR; frontSide = "izq"; }
+  let frontPct = (com.x - back.x) / (front.x - back.x);
+  frontPct = Math.max(0, Math.min(1, frontPct));
+  // lateral (aprox) con world 3D: plano suelo (x,z), offset perpendicular a la línea de pies.
+  let lateralPct = null, lateralSide = null;
+  if (getPt3D) {
+    const c3 = segmentalCoM(getPt3D), l3 = getPt3D(27), r3 = getPt3D(28);
+    if (c3 && l3 && r3) {
+      const ax = r3.x - l3.x, az = (r3.z || 0) - (l3.z || 0);
+      const len = Math.hypot(ax, az) || 1e-6;
+      const dx = c3.x - (l3.x + r3.x) / 2, dz = (c3.z || 0) - ((l3.z || 0) + (r3.z || 0)) / 2;
+      const perp = (dx * az - dz * ax) / len;      // metros, signo = lado
+      lateralPct = Math.max(-1, Math.min(1, perp / (len * 0.5)));
+      lateralSide = perp >= 0 ? "toe" : "heel";
+    }
+  }
+  return { valid: true, frontPct, backPct: 1 - frontPct, frontSide, front, back, com, lateralPct, lateralSide };
+}
+
+// Barra vertical de carga sobre cada pie (altura ∝ % de peso). ptOf en px. No dibuja si
+// la distribución no es fiable (pies alineados / faltan puntos).
+function drawWeightBars(ctx, ptOf) {
+  const w = weightDistribution(ptOf, null);
+  if (!w.valid) return;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.font = "bold 12px system-ui, sans-serif";
+  const bar = (ankle, pct, isFront) => {
+    if (!ankle) return;
+    const h = Math.max(2, pct * WEIGHT_BAR_MAX_PX), bw = 14, x = ankle.x, yb = ankle.y;
+    ctx.fillStyle = isFront ? "rgba(52,211,153,.85)" : "rgba(232,121,249,.78)";
+    ctx.fillRect(x - bw / 2, yb - h, bw, h);
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.strokeRect(x - bw / 2, yb - h, bw, h);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(Math.round(pct * 100) + "%", x, yb - h - 4);
+  };
+  bar(w.front, w.frontPct, true);
+  bar(w.back, w.backPct, false);
+  ctx.restore();
+}
+
+// ── Balance: CoM + plomada + base (reusa el CoM segmentario) ──────────────────
+// ptOf(idx) -> {x,y} en PÍXELES del canvas. Devuelve geometría de balance o null.
 function balanceGeom(ptOf) {
-  const sh = midPx(ptOf, 11, 12), hip = midPx(ptOf, 23, 24);
-  if (!sh || !hip) return null;
-  // CoM proxy de tronco (estable): pesa más la cadera. No es modelo segmentario completo.
-  const com = { x: 0.6 * hip.x + 0.4 * sh.x, y: 0.6 * hip.y + 0.4 * sh.y };
+  const com = segmentalCoM(ptOf);
+  if (!com) return null;
   const aL = ptOf(27), aR = ptOf(28);
   let base = null, ankleY = null, inside = true;
   if (aL && aR) {

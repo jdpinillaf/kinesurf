@@ -64,11 +64,16 @@
       <a class="tab" href="/"><span class="ic">✎</span> Etiquetar</a>
       <a class="tab" href="/compare" aria-current="page"><span class="ic">⇄</span> Comparar</a>
       <a class="tab" href="/sequence"><span class="ic">▦</span> Secuencia</a>
+      <a class="tab" href="/pose3d"><span class="ic">◈</span> 3D</a>
     </div>
     <span class="nav-spacer"></span>
     <label style="color:var(--muted)"><input type="checkbox" id="fillToggle" checked> rellenar oclusiones</label>
     <label style="color:var(--muted)"><input type="checkbox" id="metricsToggle" checked> métricas</label>
-    <label style="color:var(--muted)" title="centro de masa + línea de balance"><input type="checkbox" id="balanceToggle"> balance</label>
+    <details class="mpick" id="metricsPick">
+      <summary title="elegir qué métricas ver">métricas ▾</summary>
+      <div class="mpickList"></div>
+    </details>
+    <label style="color:var(--muted)" title="distribución de peso (estimada por CoM) + balance"><input type="checkbox" id="balanceToggle"> peso</label>
     <label style="color:var(--muted)"><input type="checkbox" id="syncToggle"> sincronizar reproductores</label>
   </nav>
 
@@ -89,6 +94,8 @@
           <button data-tool="landmark">corregir</button>
           <button data-tool="angle">ángulo</button>
           <button data-tool="pen">dibujo</button>
+          <button data-tool="arrow" title="flecha (arrastrar)">flecha</button>
+          <button data-tool="text" title="texto (clic y escribir)">texto</button>
         </span>
         <span class="grow"></span>
         <button class="undoBtn" title="deshacer">↶</button>
@@ -136,6 +143,8 @@
           <button data-tool="landmark">corregir</button>
           <button data-tool="angle">ángulo</button>
           <button data-tool="pen">dibujo</button>
+          <button data-tool="arrow" title="flecha (arrastrar)">flecha</button>
+          <button data-tool="text" title="texto (clic y escribir)">texto</button>
         </span>
         <span class="grow"></span>
         <button class="undoBtn" title="deshacer">↶</button>
@@ -175,6 +184,8 @@
 
   <div id="deltaBar"></div>
 
+  <script src="/static/api.js"></script>
+  <script src="/static/draw.js"></script>
   <script src="/static/metrics.js"></script>
   <script src="/static/occlusion.js"></script>
   <script src="/static/pane.js"></script>

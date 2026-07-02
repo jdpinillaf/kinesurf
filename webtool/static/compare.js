@@ -21,12 +21,14 @@ paneB.onAction = (action) => mirror(paneB, action);
 const metricsToggle = document.getElementById("metricsToggle");
 const deltaBar = document.getElementById("deltaBar");
 
-// Una fila de método (2D o 3D): tag, valor A, valor B, Δ coloreado.
-function methodRow(tag, av, bv) {
-  const d = fmtDelta(av, bv) || "—";
+// Una fila de método (2D o 3D): tag, valor A, valor B, Δ coloreado. `unit` para métricas
+// en % (peso) vs grados; el umbral de color se afloja para el peso (puntos %).
+function methodRow(tag, av, bv, unit = "°") {
+  const d = fmtDelta(av, bv, unit) || "—";
+  const thresh = unit === "%" ? 10 : 15;
   return `<span class="drow"><span class="mtag">${tag}</span>` +
-    `<span class="a">${fmtMetric(av)}</span><span class="b">${fmtMetric(bv)}</span>` +
-    `<span class="d ${deltaClass(av, bv)}">${d}</span></span>`;
+    `<span class="a">${fmtMetric(av, unit)}</span><span class="b">${fmtMetric(bv, unit)}</span>` +
+    `<span class="d ${deltaClass(av, bv, thresh)}">${d}</span></span>`;
 }
 
 function updateDeltaBar() {
@@ -44,8 +46,8 @@ function updateDeltaBar() {
     const card = document.createElement("div");
     card.className = "dcard";
     let html = `<span class="dlabel">${a.label}</span>`;
-    html += methodRow("2D", a.v2d, b.v2d);
-    if (!a.isTilt) html += methodRow("3D", a.v3d, b.v3d);
+    html += methodRow("2D", a.v2d, b.v2d, a.unit);
+    if (!a.isTilt) html += methodRow("3D", a.v3d, b.v3d, a.unit);
     card.innerHTML = html;
     deltaBar.appendChild(card);
   }
@@ -58,6 +60,12 @@ function applyMetricsVisibility() {
 }
 metricsToggle.addEventListener("change", applyMetricsVisibility);
 applyMetricsVisibility();
+
+// Picker de métricas visibles: re-renderiza paneles (la delta bar sigue vía onMetrics).
+initMetricsPicker(() => {
+  paneA.refreshMetrics();
+  paneB.refreshMetrics();
+});
 
 // Toggle de relleno de oclusiones (afecta ambos paneles).
 const fillToggle = document.getElementById("fillToggle");
@@ -73,7 +81,8 @@ balanceToggle.addEventListener("change", () => {
   paneB.setBalance(balanceToggle.checked);
 });
 
-// Defaults: profe a la izquierda, alumno a la derecha (si están disponibles).
+// Defaults: profe a la izquierda, alumno a la derecha. Primero por rol de la
+// librería; fallback: match por nombre de archivo.
 function pick(videos, prefer, fallbackIdx) {
   const hit = videos.find((v) => v.toLowerCase().includes(prefer));
   return hit || videos[fallbackIdx] || videos[0] || null;
@@ -81,11 +90,12 @@ function pick(videos, prefer, fallbackIdx) {
 
 async function init() {
   // ambos panes leen la misma lista; poblar selects una vez por pane
-  const videos = await paneA.loadVideos();
-  await paneB.loadVideos();
+  const lib = await loadLibrary();
+  const videos = await paneA.loadVideos(lib);
+  await paneB.loadVideos(lib);
 
-  const vA = pick(videos, "profesor", 0);
-  const vB = pick(videos, "estudiante", 1);
+  const vA = pickByRole(videos, lib, "profesor") || pick(videos, "profesor", 0);
+  const vB = pickByRole(videos, lib, "alumno") || pick(videos, "estudiante", 1);
   if (vA) await paneA.load(vA);
   if (vB) await paneB.load(vB);
 }

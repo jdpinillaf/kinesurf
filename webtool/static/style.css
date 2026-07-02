@@ -1,42 +1,44 @@
 /* ============================================================
-   Surf Analyzer — design system (Ocean dark)
+   Surf Analyzer — design system (Océano claro)
    Tokens + componentes compartidos por las 3 vistas.
    IMPORTANTE: no renombrar IDs/clases que usa el JS; esto solo
    estiliza. Hooks: .tools button[data-tool], button.active, etc.
+   El marco del video (.frame, .preview, .cell canvas) se queda
+   oscuro neutro a propósito: el esqueleto necesita ese contraste.
    ============================================================ */
 
 :root {
-  /* superficies */
-  --bg:        #0e151c;
-  --surface:   #18212b;
-  --surface-2: #212c38;
-  --surface-3: #2a3744;
-  --border:    #2e3b48;
-  --border-2:  #3b4b59;
+  /* superficies (claras, arena) */
+  --bg:        #faf9f6;
+  --surface:   #ffffff;
+  --surface-2: #f2f0ea;
+  --surface-3: #e9e6de;
+  --border:    #e4e1d8;
+  --border-2:  #d2cec2;
 
   /* texto */
-  --text:  #e6edf3;
-  --muted: #93a4b3;
-  --faint: #6b7b8a;
+  --text:  #1f2a33;
+  --muted: #5b6b77;
+  --faint: #8b99a4;
 
-  /* acento surf (teal/cyan) */
-  --accent:       #2dd4bf;
-  --accent-2:     #38bdf8;
-  --accent-press: #14b8a6;
-  --accent-ink:   #05201d;   /* texto sobre acento */
-  --accent-soft:  rgba(45, 212, 191, .14);
+  /* acento océano (teal) */
+  --accent:       #0e7c86;
+  --accent-2:     #4fa3b8;
+  --accent-press: #0a616a;
+  --accent-ink:   #ffffff;   /* texto sobre acento */
+  --accent-soft:  rgba(14, 124, 134, .10);
 
   /* semánticos */
-  --ok:     #34d399;
-  --danger: #f87171;
-  --warn:   #fbbf24;
+  --ok:     #2a9d8f;
+  --danger: #e76f51;
+  --warn:   #e9a23b;
 
   /* escala / forma */
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;  --sp-4: 16px;  --sp-5: 24px;
   --r:    8px;  --r-sm: 6px;  --r-lg: 12px;  --r-pill: 999px;
   --ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
-  --shadow-1: 0 1px 2px rgba(0,0,0,.3);
-  --shadow-2: 0 6px 20px rgba(0,0,0,.35);
+  --shadow-1: 0 1px 2px rgba(31,42,51,.07);
+  --shadow-2: 0 6px 20px rgba(31,42,51,.10);
 
   --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-lg: 16px;
   --font: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
@@ -58,8 +60,9 @@ body {
   display: flex; align-items: center; gap: var(--sp-4);
   padding: 0 var(--sp-4);
   height: 52px;
-  background: linear-gradient(180deg, #16202a, #131b23);
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
   flex: 0 0 auto;
 }
 .topnav .brand {
@@ -85,7 +88,7 @@ body {
 .topnav .tab:hover { color: var(--text); background: var(--surface-2); }
 .topnav .tab[aria-current="page"] {
   color: var(--accent); background: var(--accent-soft);
-  border-color: rgba(45,212,191,.35);
+  border-color: rgba(14,124,134,.30);
 }
 .topnav .tab .ic { font-size: 14px; }
 .topnav .nav-spacer { margin-left: auto; }
@@ -112,11 +115,11 @@ button {
   cursor: pointer;
   transition: background .12s, border-color .12s, color .12s, transform .04s;
 }
-button:hover { background: var(--surface-3); border-color: #46586a; }
+button:hover { background: var(--surface-3); border-color: #c2bcae; }
 button:active { transform: translateY(1px); }
 button.active {
   background: var(--accent-soft); color: var(--accent);
-  border-color: rgba(45,212,191,.45);
+  border-color: rgba(14,124,134,.40);
 }
 
 /* acción primaria: guardar / exportar (clase opcional, no rompe nada) */
@@ -170,11 +173,11 @@ input[type="range"] {
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 16px; height: 16px; border-radius: 50%;
-  background: var(--accent); border: 2px solid #0c1218; box-shadow: var(--shadow-1);
+  background: var(--accent); border: 2px solid #ffffff; box-shadow: var(--shadow-1);
 }
 input[type="range"]::-moz-range-thumb {
   width: 16px; height: 16px; border-radius: 50%;
-  background: var(--accent); border: 2px solid #0c1218;
+  background: var(--accent); border: 2px solid #ffffff;
 }
 
 /* foco accesible visible para teclado */
@@ -203,6 +206,34 @@ footer .strideWrap, footer .ffWrap { display: flex; align-items: center; gap: 4p
 /* utilidades */
 .sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px; }
 .grow { flex: 1; }
+
+/* input flotante de la herramienta de texto (draw.js) */
+.annotTextInput {
+  position: absolute; z-index: 30; min-width: 120px;
+  font: 600 var(--fs-md)/1.2 var(--font); color: var(--text);
+  background: rgba(255,255,255,.94); border: 1px solid var(--accent);
+  border-radius: var(--r-sm); padding: 3px 8px; box-shadow: var(--shadow-1);
+}
+
+/* ---------- picker de métricas visibles ---------- */
+.mpick { position: relative; }
+.mpick summary {
+  list-style: none; cursor: pointer; user-select: none;
+  font: 600 var(--fs-sm)/1 var(--font); color: var(--text);
+  background: var(--surface-2); border: 1px solid var(--border-2);
+  border-radius: var(--r-sm); padding: 7px 12px;
+}
+.mpick summary::-webkit-details-marker { display: none; }
+.mpick summary:hover { background: var(--surface-3); }
+.mpick[open] summary { background: var(--accent-soft); color: var(--accent);
+  border-color: rgba(14,124,134,.40); }
+.mpick .mpickList {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 60;
+  display: flex; flex-direction: column; gap: 6px; min-width: 176px;
+  background: var(--surface); border: 1px solid var(--border-2);
+  border-radius: var(--r); padding: 10px 12px; box-shadow: var(--shadow-2);
+}
+.mpick .mpickList label { white-space: nowrap; cursor: pointer; }
 
 /* ---------- métricas biomecánicas ---------- */
 /* toggle global: ocultar todo lo de métricas */
@@ -238,8 +269,8 @@ body.metrics-off .cellMetrics { display: none; }
   font-variant-numeric: tabular-nums; }
 #deltaBar .dcard .drow .mtag { color: var(--faint); font-size: 10px; min-width: 18px;
   font-weight: 700; }
-#deltaBar .dcard .drow .a { color: var(--accent-2); font-weight: 700; }
-#deltaBar .dcard .drow .b { color: #f0b86c; font-weight: 700; }
+#deltaBar .dcard .drow .a { color: var(--accent); font-weight: 700; }
+#deltaBar .dcard .drow .b { color: #b8722c; font-weight: 700; }
 #deltaBar .dcard .drow .d { margin-left: auto; font-weight: 700; }
 #deltaBar .dhint { align-self: center; color: var(--faint); font-size: var(--fs-xs); }
 

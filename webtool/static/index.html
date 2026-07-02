@@ -20,6 +20,7 @@
       <a class="tab" href="/"        aria-current="page"><span class="ic">✎</span> Etiquetar</a>
       <a class="tab" href="/compare"><span class="ic">⇄</span> Comparar</a>
       <a class="tab" href="/sequence"><span class="ic">▦</span> Secuencia</a>
+      <a class="tab" href="/pose3d"><span class="ic">◈</span> 3D</a>
     </div>
     <span class="nav-spacer"></span>
     <span class="nav-hint">corrige poses y marca ángulos sobre un video</span>
@@ -27,15 +28,30 @@
 
   <header>
     <select id="videoSelect" title="elegir video"></select>
+    <details class="mpick" id="tagEdit">
+      <summary title="etiquetar este video: maniobra / persona / rol">🏷 tags</summary>
+      <div class="mpickList">
+        <label>maniobra <select id="tagManiobra"></select></label>
+        <label>persona <input id="tagPersona" type="text" placeholder="nombre" style="width:9em"></label>
+        <label>rol <select id="tagRol">
+          <option value="">—</option>
+          <option value="profesor">profesor</option>
+          <option value="alumno">alumno</option>
+        </select></label>
+        <button id="tagSave" class="primary">guardar tag</button>
+      </div>
+    </details>
     <label><input type="checkbox" id="skeletonToggle" checked> esqueleto</label>
     <label title="rellenar por interpolación los puntos ocluidos"><input type="checkbox" id="fillToggle" checked> rellenar oclusiones</label>
-    <label title="centro de masa + línea de balance"><input type="checkbox" id="balanceToggle"> balance</label>
+    <label title="distribución de peso (estimada por CoM) + balance"><input type="checkbox" id="balanceToggle"> peso</label>
     <span class="sep"></span>
     <span class="tools" role="group" aria-label="herramientas">
       <button data-tool="none" class="active" title="solo mirar">cursor</button>
       <button data-tool="landmark" title="arrastrar un punto a su sitio">corregir</button>
       <button data-tool="angle" title="medir un ángulo (3 clics)">ángulo</button>
       <button data-tool="pen" title="dibujar libre">dibujo</button>
+      <button data-tool="arrow" title="flecha (arrastrar del origen a la punta)">flecha</button>
+      <button data-tool="text" title="texto (clic y escribir, Enter confirma)">texto</button>
     </span>
     <span class="grow"></span>
     <button id="undoBtn" title="deshacer último trazo">↶ undo</button>
@@ -63,6 +79,8 @@
     <span id="frameLabel">0 / 0</span>
   </footer>
 
+  <script src="/static/api.js"></script>
+  <script src="/static/draw.js"></script>
   <script src="/static/metrics.js"></script>
   <script src="/static/occlusion.js"></script>
   <script src="/static/app.js"></script>
