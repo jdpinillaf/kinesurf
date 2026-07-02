@@ -407,3 +407,6 @@ dialog form input, dialog form select, dialog form textarea {
   text-decoration: none; font-size: var(--fs-sm); white-space: nowrap;
 }
 .student-context:hover { background: var(--accent); color: var(--accent-ink); }
+
+/* wordmark KineSurf */
+.topnav .brand img.logo { width: 22px; height: 22px; border-radius: 5px; }

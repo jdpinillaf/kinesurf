@@ -124,7 +124,7 @@ async function refresh() {
   nombreIn.value = _student.nombre;
   nivelIn.value = _student.nivel || "";
   notasIn.value = _student.notas || "";
-  document.title = `Surf Analyzer — ${_student.nombre}`;
+  document.title = `KineSurf — ${_student.nombre}`;
   document.getElementById("archiveBtn").textContent =
     _student.archivado ? "desarchivar" : "archivar";
   renderVideos();
