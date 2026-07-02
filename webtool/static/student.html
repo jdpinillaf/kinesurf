@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Surf Analyzer — Estudiante</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <nav class="topnav">
+    <a class="brand" href="/dashboard"><span class="logo">🏄</span> Surf <span class="accent">Analyzer</span></a>
+    <div class="tabs">
+      <a class="tab" href="/dashboard" aria-current="page"><span class="ic">👥</span> Dashboard</a>
+      <a class="tab" href="/"><span class="ic">✎</span> Etiquetar</a>
+      <a class="tab" href="/compare"><span class="ic">⇄</span> Comparar</a>
+      <a class="tab" href="/sequence"><span class="ic">▦</span> Secuencia</a>
+      <a class="tab" href="/pose3d"><span class="ic">◈</span> 3D</a>
+    </div>
+    <span class="nav-spacer"></span>
+    <span class="nav-hint">perfil y progreso del estudiante</span>
+  </nav>
+
+  <main class="page">
+    <a href="/dashboard" class="backlink">← estudiantes</a>
+
+    <div class="page-head student-head">
+      <input id="sNombre" class="title-input" type="text" placeholder="nombre">
+      <select id="sNivel">
+        <option value="">nivel —</option>
+        <option>principiante</option>
+        <option>intermedio</option>
+        <option>avanzado</option>
+      </select>
+      <span class="grow"></span>
+      <button id="saveBtn" class="primary">guardar</button>
+      <button id="archiveBtn" title="ocultar del dashboard sin borrar nada">archivar</button>
+      <span id="status" class="dim"></span>
+    </div>
+    <textarea id="sNotas" rows="2" placeholder="notas del coach: objetivos, lesiones, plan…"></textarea>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Videos por maniobra</h2>
+        <span class="grow"></span>
+        <select id="assignSelect"><option value="">+ asignar video existente…</option></select>
+      </div>
+      <div id="videosByManeuver"></div>
+      <p id="noVideos" class="dim" hidden>Sin videos asignados. Usa "+ asignar video existente" o etiqueta videos nuevos en la vista Etiquetar.</p>
+    </section>
+
+    <section class="section">
+      <h2>Progreso (por fecha)</h2>
+      <div id="timeline" class="timeline"></div>
+    </section>
+  </main>
+
+  <script src="/static/api.js"></script>
+  <script src="/static/student.js"></script>
+</body>
+</html>

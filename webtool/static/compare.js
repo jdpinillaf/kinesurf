@@ -94,8 +94,13 @@ async function init() {
   const videos = await paneA.loadVideos(lib);
   await paneB.loadVideos(lib);
 
-  const vA = pickByRole(videos, lib, "profesor") || pick(videos, "profesor", 0);
-  const vB = pickByRole(videos, lib, "alumno") || pick(videos, "estudiante", 1);
+  // Deep link ?b= (video del alumno desde el dashboard): pane A elige la
+  // referencia de profesor de la misma maniobra. Sin param, defaults por rol.
+  const bParam = qs("b");
+  const vB = (bParam && videos.includes(bParam)) ? bParam
+    : pickByRole(videos, lib, "alumno") || pick(videos, "estudiante", 1);
+  const vA = (bParam && pickReference(videos, lib, vB))
+    || pickByRole(videos, lib, "profesor") || pick(videos, "profesor", 0);
   if (vA) await paneA.load(vA);
   if (vB) await paneB.load(vB);
 }

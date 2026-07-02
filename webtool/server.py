@@ -158,6 +158,8 @@ def read_meta(path: str) -> dict:
 
 def create_app() -> Flask:
     app = Flask(__name__, static_folder=None)
+    from webtool.students import bp as students_bp  # import tardío: evita ciclo
+    app.register_blueprint(students_bp)
 
     reader = FrameReader()
 

@@ -796,8 +796,13 @@ async function init() {
   const lib = await loadLibrary();
   for (const col of [colA, colB])
     populateVideoSelect(col.els.videoSelect, videos, lib);
-  const vA = pickByRole(videos, lib, "profesor") || pick(videos, "profesor", 0);
-  const vB = pickByRole(videos, lib, "alumno") || pick(videos, "estudiante", 1);
+  // Deep link ?video= (video del alumno desde el dashboard): columna B, y la
+  // columna A elige la referencia de profesor de la misma maniobra.
+  const vParam = qs("video");
+  const vB = (vParam && videos.includes(vParam)) ? vParam
+    : pickByRole(videos, lib, "alumno") || pick(videos, "estudiante", 1);
+  const vA = (vParam && pickReference(videos, lib, vB))
+    || pickByRole(videos, lib, "profesor") || pick(videos, "profesor", 0);
   if (vA) await colA.load(vA);
   if (vB) await colB.load(vB);
   renderInfographic();

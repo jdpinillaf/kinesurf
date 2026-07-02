@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Surf Analyzer — Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <nav class="topnav">
+    <a class="brand" href="/dashboard"><span class="logo">🏄</span> Surf <span class="accent">Analyzer</span></a>
+    <div class="tabs">
+      <a class="tab" href="/dashboard" aria-current="page"><span class="ic">👥</span> Dashboard</a>
+      <a class="tab" href="/"><span class="ic">✎</span> Etiquetar</a>
+      <a class="tab" href="/compare"><span class="ic">⇄</span> Comparar</a>
+      <a class="tab" href="/sequence"><span class="ic">▦</span> Secuencia</a>
+      <a class="tab" href="/pose3d"><span class="ic">◈</span> 3D</a>
+    </div>
+    <span class="nav-spacer"></span>
+    <span class="nav-hint">tus estudiantes y sus videos</span>
+  </nav>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Estudiantes</h1>
+      <input id="searchBox" type="search" placeholder="buscar estudiante…">
+      <span class="grow"></span>
+      <label class="dim"><input type="checkbox" id="showArchived"> archivados</label>
+      <button id="addStudentBtn" class="primary">+ estudiante</button>
+    </div>
+
+    <div id="studentGrid" class="student-grid"></div>
+    <p id="emptyMsg" class="dim" hidden>Sin estudiantes aún — crea el primero con "+ estudiante".</p>
+
+    <section class="section" id="unassignedSection" hidden>
+      <h2>Videos sin asignar</h2>
+      <p class="dim">Videos de la librería que no pertenecen a ningún estudiante ni son referencia de profesor.</p>
+      <div id="unassignedList" class="unassigned-list"></div>
+    </section>
+  </main>
+
+  <dialog id="studentDialog">
+    <form method="dialog" id="studentForm">
+      <h3>Nuevo estudiante</h3>
+      <label>Nombre <input id="fNombre" type="text" required placeholder="Ana García"></label>
+      <label>Nivel
+        <select id="fNivel">
+          <option value="">—</option>
+          <option>principiante</option>
+          <option>intermedio</option>
+          <option>avanzado</option>
+        </select>
+      </label>
+      <label>Notas <textarea id="fNotas" rows="3" placeholder="objetivos, lesiones, contexto…"></textarea></label>
+      <div class="dialog-actions">
+        <button value="cancel" formnovalidate>cancelar</button>
+        <button value="ok" class="primary" id="fCreate">crear</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/static/api.js"></script>
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

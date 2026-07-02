@@ -284,3 +284,126 @@ body.metrics-off .cellMetrics { display: none; }
 .cellMetrics .m .mt { color: var(--faint); font-size: 9px; font-weight: 700; }
 .cellMetrics .m .mv { color: var(--text); font-weight: 700; }
 .cellMetrics .m .md { font-weight: 700; }
+
+/* ============================================================
+   Dashboard de coach (dashboard.html / student.html)
+   Solo clases NUEVAS — no tocar los hooks de las vistas de análisis.
+   ============================================================ */
+
+.page {
+  max-width: 980px; margin: 0 auto; padding: var(--sp-5) var(--sp-4);
+}
+.page-head {
+  display: flex; align-items: center; gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.page-head h1 { margin: 0; font-size: 22px; }
+.page-head input[type="search"] {
+  padding: 6px 10px; border: 1px solid var(--border-2); border-radius: var(--r-sm);
+  background: var(--surface); min-width: 220px;
+}
+.page .grow { flex: 1; }
+.page .dim, .dim { color: var(--muted); font-size: var(--fs-sm); }
+.backlink { color: var(--muted); text-decoration: none; font-size: var(--fs-sm); }
+.backlink:hover { color: var(--accent); }
+
+.student-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--sp-3);
+}
+.card {
+  display: block; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: var(--sp-4); text-decoration: none;
+  color: var(--text); box-shadow: var(--shadow-1);
+  transition: box-shadow .15s, border-color .15s;
+}
+.card:hover { box-shadow: var(--shadow-2); border-color: var(--accent-2); }
+.card.archived { opacity: .55; }
+.card-title { font-weight: 700; font-size: var(--fs-lg); margin-bottom: var(--sp-1); }
+.card-sub { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+
+.chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.chip {
+  display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
+  background: var(--surface-2); border: 1px solid var(--border);
+  font-size: var(--fs-xs); color: var(--muted);
+}
+.chip-accent { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.chip-link { text-decoration: none; }
+.chip-link:hover { background: var(--accent); color: var(--accent-ink); }
+
+.section { margin-top: var(--sp-5); }
+.section h2 { font-size: var(--fs-lg); margin: 0 0 var(--sp-2); }
+.section-head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
+
+.unassigned-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.unassigned-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: var(--sp-2) var(--sp-3);
+}
+.unassigned-row select { margin-left: auto; }
+
+/* perfil de estudiante */
+.student-head .title-input {
+  font-size: 22px; font-weight: 700; border: 1px solid transparent;
+  background: transparent; border-radius: var(--r-sm); padding: 4px 8px;
+  min-width: 260px; color: var(--text);
+}
+.student-head .title-input:hover,
+.student-head .title-input:focus { border-color: var(--border-2); background: var(--surface); outline: none; }
+#sNotas {
+  width: 100%; border: 1px solid var(--border); border-radius: var(--r);
+  padding: var(--sp-2) var(--sp-3); background: var(--surface);
+  font-family: var(--font); font-size: var(--fs-md); color: var(--text);
+  resize: vertical;
+}
+
+.maneuver-title { margin: var(--sp-4) 0 var(--sp-2); }
+.video-row {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+.video-row-main { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.video-actions { display: flex; gap: var(--sp-1); margin-left: auto; }
+.video-row-foot { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); }
+.video-row-foot input {
+  flex: 1; border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 4px 8px; background: var(--surface-2); font-size: var(--fs-sm);
+}
+
+.timeline { border-left: 2px solid var(--border-2); padding-left: var(--sp-4); }
+.timeline-item { position: relative; margin-bottom: var(--sp-4); }
+.timeline-item::before {
+  content: ""; position: absolute; left: calc(-1 * var(--sp-4) - 5px); top: 6px;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+}
+.timeline-date { font-weight: 700; margin-bottom: var(--sp-1); }
+.timeline-video { margin-bottom: var(--sp-1); font-size: var(--fs-sm); }
+
+/* modal nuevo estudiante */
+dialog {
+  border: 1px solid var(--border); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2); padding: var(--sp-5); min-width: 340px;
+  background: var(--surface); color: var(--text);
+}
+dialog::backdrop { background: rgba(31,42,51,.35); }
+dialog h3 { margin: 0 0 var(--sp-3); }
+dialog form label { display: block; margin-bottom: var(--sp-3); font-size: var(--fs-sm); color: var(--muted); }
+dialog form input, dialog form select, dialog form textarea {
+  display: block; width: 100%; margin-top: 4px;
+  border: 1px solid var(--border-2); border-radius: var(--r-sm);
+  padding: 6px 8px; font-family: var(--font); font-size: var(--fs-md);
+  background: var(--surface); color: var(--text);
+}
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-4); }
+
+/* chip de contexto de estudiante en las vistas de análisis */
+.student-context {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px; border-radius: var(--r-pill);
+  background: var(--accent-soft); color: var(--accent);
+  text-decoration: none; font-size: var(--fs-sm); white-space: nowrap;
+}
+.student-context:hover { background: var(--accent); color: var(--accent-ink); }

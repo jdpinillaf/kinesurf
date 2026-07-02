@@ -331,6 +331,9 @@ async function init() {
   const { videos } = await (await fetch("/api/videos")).json();
   const lib = await loadLibrary();
   populateVideoSelect(els.videoSelect, videos, lib);
-  if (videos.length) await loadVideo(videos[0]);
+  // Deep link ?video= (desde el dashboard); sin param, primer video.
+  const initial = qs("video");
+  if (videos.length)
+    await loadVideo(videos.includes(initial) ? initial : videos[0]);
 }
 init();

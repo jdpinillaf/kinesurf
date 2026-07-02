@@ -44,7 +44,10 @@ async function loadVideos() {
     videoList = videos;
     library = await loadLibrary();
     populateVideoSelect(els.videoSelect, videos, library);
-    if (videos.length) await selectVideo(videos[0]);
+    // Deep link ?video= (desde el dashboard); sin param, primer video.
+    const initial = qs("video");
+    if (videos.length)
+      await selectVideo(videos.includes(initial) ? initial : videos[0]);
   } catch (err) {
     els.status.textContent = "error cargando: " + err.message;
   }
