@@ -3,151 +3,162 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KineSurf — Biomecánica real para surf coaches</title>
-  <meta name="description" content="KineSurf mide la técnica de tus estudiantes de surf en video: ángulos articulares reales, distribución de peso y comparación coach vs. alumno. Medición, no opinión.">
+  <title>KineSurf — Análisis de técnica para surf coaches</title>
+  <meta name="description" content="KineSurf muestra la compresión, estabilidad, rotación y alineación de tus estudiantes de surf — etapa por etapa, sobre su propio video. Comparados contra tu técnica.">
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --ink: #0f1519;          /* negro editorial */
-      --ink-2: #161e24;
+      --ink: #0f1519; --ink-2: #161e24;
       --cream: #faf9f6;
-      --cream-2: #f2f0ea;
       --border-dark: rgba(255,255,255,.10);
       --border-light: #e4e1d8;
-      --text-on-dark: #eef1f2;
-      --muted-on-dark: #9fb0b8;
-      --text: #1f2a33;
-      --muted: #5b6b77;
-      --teal: #0e7c86; --teal-2: #4fa3b8; --teal-bright: #35c3d1;
+      --text-on-dark: #eef1f2; --muted-on-dark: #9fb0b8;
+      --text: #1f2a33; --muted: #5b6b77;
+      --teal: #0e7c86; --teal-bright: #35c3d1;
       --coral: #e76f51;
-      --head: "Sora", -apple-system, sans-serif;
-      --body: "Inter", -apple-system, sans-serif;
+      --head: "Space Grotesk", -apple-system, sans-serif;
+      --body: "Archivo", -apple-system, sans-serif;
     }
     * { box-sizing: border-box; margin: 0; }
     html { scroll-behavior: smooth; }
     body { font-family: var(--body); background: var(--ink); color: var(--text-on-dark); line-height: 1.65; }
     .wrap { max-width: 1160px; margin: 0 auto; padding: 0 28px; }
     img { max-width: 100%; display: block; }
-    h1, h2, h3 { font-family: var(--head); line-height: 1.15; font-weight: 800; letter-spacing: -.5px; }
-    .kicker { font-family: var(--head); font-weight: 600; text-transform: uppercase; letter-spacing: 3px; font-size: 12px; color: var(--teal-bright); margin-bottom: 18px; }
+    h1, h2, h3 { font-family: var(--head); line-height: 1.12; font-weight: 700; letter-spacing: -.5px; }
+    .kicker { font-family: var(--head); font-weight: 500; text-transform: uppercase; letter-spacing: 3.5px; font-size: 12px; color: var(--teal-bright); margin-bottom: 18px; }
     .light .kicker { color: var(--teal); }
-    .btn { display: inline-block; font-family: var(--head); font-weight: 600; font-size: 15px; padding: 14px 32px; border-radius: 999px; text-decoration: none; letter-spacing: .3px; transition: all .18s; }
+    .btn { display: inline-block; font-family: var(--head); font-weight: 500; font-size: 15px; padding: 14px 32px; border-radius: 999px; text-decoration: none; letter-spacing: .3px; transition: all .18s; }
     .btn-solid { background: var(--coral); color: #fff; }
     .btn-solid:hover { background: #d85c3e; transform: translateY(-1px); }
     .btn-line { color: #fff; border: 1px solid rgba(255,255,255,.45); }
     .btn-line:hover { border-color: #fff; background: rgba(255,255,255,.08); }
 
-    /* ── header ── */
+    /* header */
     header { position: fixed; inset: 0 0 auto; z-index: 20; }
-    .nav { display: flex; align-items: center; height: 76px; }
-    .brand { display: flex; align-items: center; gap: 11px; font-family: var(--head); font-weight: 800; font-size: 20px; color: #fff; text-decoration: none; letter-spacing: -.3px; }
+    header .scrim { position: absolute; inset: 0; background: linear-gradient(rgba(10,14,17,.6), transparent); pointer-events: none; }
+    .nav { display: flex; align-items: center; height: 76px; position: relative; }
+    .brand { display: flex; align-items: center; gap: 11px; font-family: var(--head); font-weight: 700; font-size: 20px; color: #fff; text-decoration: none; }
     .brand img { width: 30px; height: 30px; border-radius: 8px; }
     .brand .accent { color: var(--teal-bright); }
     .nav .grow { flex: 1; }
     .nav .btn { padding: 10px 22px; font-size: 13.5px; }
-    header .scrim { position: absolute; inset: 0; background: linear-gradient(rgba(10,14,17,.65), transparent); pointer-events: none; }
-    .nav { position: relative; }
 
-    /* ── hero ── */
-    .hero { position: relative; min-height: 92vh; display: flex; align-items: flex-end; overflow: hidden; }
+    /* hero */
+    .hero { position: relative; min-height: 88vh; display: flex; align-items: flex-end; overflow: hidden; }
     .hero .bg { position: absolute; inset: 0; }
-    .hero .bg img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; filter: saturate(.75) contrast(1.05); }
+    .hero .bg img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 62%; }
     .hero .bg::after { content: ""; position: absolute; inset: 0;
-      background: linear-gradient(180deg, rgba(15,21,25,.30) 0%, rgba(15,21,25,.55) 55%, var(--ink) 100%),
-                  linear-gradient(90deg, rgba(15,21,25,.55) 0%, transparent 60%); }
-    .hero .inner { position: relative; padding: 0 0 96px; }
-    .hero h1 { font-size: clamp(40px, 6.2vw, 76px); max-width: 820px; color: #fff; margin-bottom: 24px; }
+      background: linear-gradient(180deg, rgba(15,21,25,.25) 0%, rgba(15,21,25,.45) 55%, var(--ink) 100%),
+                  linear-gradient(90deg, rgba(15,21,25,.5) 0%, transparent 55%); }
+    .hero .inner { position: relative; padding: 0 0 90px; }
+    .hero h1 { font-size: clamp(40px, 6vw, 74px); max-width: 800px; color: #fff; margin-bottom: 22px; }
     .hero h1 em { font-style: normal; color: var(--teal-bright); }
-    .hero p { font-size: clamp(16px, 1.8vw, 19px); color: var(--muted-on-dark); max-width: 560px; margin-bottom: 36px; font-weight: 400; }
+    .hero p { font-size: clamp(16px, 1.8vw, 19px); color: #cfd9dd; max-width: 600px; margin-bottom: 36px; }
     .hero .ctas { display: flex; gap: 16px; flex-wrap: wrap; }
 
-    /* ── stat strip ── */
+    /* strip */
     .strip { border-top: 1px solid var(--border-dark); border-bottom: 1px solid var(--border-dark); }
-    .strip .wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-    .strip .cell { padding: 30px 28px; border-left: 1px solid var(--border-dark); }
+    .strip .wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); padding: 0; }
+    .strip .cell { padding: 28px; border-left: 1px solid var(--border-dark); }
     .strip .cell:first-child { border-left: 0; }
-    .strip .n { font-family: var(--head); font-weight: 800; font-size: 26px; color: #fff; }
-    .strip .l { font-size: 13px; color: var(--muted-on-dark); letter-spacing: .5px; }
+    .strip .n { font-family: var(--head); font-weight: 700; font-size: 17px; color: #fff; text-transform: uppercase; letter-spacing: 1.5px; }
+    .strip .l { font-size: 13.5px; color: var(--muted-on-dark); }
 
-    /* ── dark editorial section ── */
-    section { padding: 110px 0; }
-    .statement h2 { font-size: clamp(30px, 4.4vw, 52px); color: #fff; max-width: 760px; margin-bottom: 26px; }
-    .statement .sub { color: var(--muted-on-dark); font-size: 18px; max-width: 620px; }
+    section { padding: 104px 0; }
 
-    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; margin-top: 72px; }
-    @media (max-width: 780px) { .cols { grid-template-columns: 1fr; gap: 40px; } }
-    .col h3 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 2.5px; color: #fff; margin-bottom: 14px; padding-top: 18px; border-top: 1px solid var(--border-dark); }
-    .col p { color: var(--muted-on-dark); font-size: 15.5px; }
+    /* secuencia central */
+    .seq h2 { font-size: clamp(30px, 4.4vw, 52px); color: #fff; max-width: 820px; margin-bottom: 22px; }
+    .seq .sub { color: var(--muted-on-dark); font-size: 18px; max-width: 680px; margin-bottom: 12px; }
+    .seq .sub strong { color: #fff; font-weight: 600; }
+    .seq-board { margin-top: 48px; border: 1px solid var(--border-dark); border-radius: 8px; overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,.5); }
+    .seq-tags { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 26px; }
+    .tag { font-family: var(--head); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 2px; color: var(--teal-bright); border: 1px solid rgba(53,195,209,.35); border-radius: 999px; padding: 7px 16px; }
 
-    /* ── delta numbers ── */
-    .deltas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border-dark); border: 1px solid var(--border-dark); margin-top: 72px; }
+    /* lo que miras */
+    .looks h2 { font-size: clamp(28px, 4vw, 46px); color: #fff; max-width: 720px; margin-bottom: 16px; }
+    .looks .sub { color: var(--muted-on-dark); font-size: 17px; max-width: 620px; }
+    .look-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 56px; margin-top: 56px; }
+    .look { padding: 22px 0; border-top: 1px solid var(--border-dark); }
+    .look h3 { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 2.5px; color: #fff; margin-bottom: 8px; }
+    .look p { color: var(--muted-on-dark); font-size: 15px; }
+    .proof { margin-top: 56px; padding: 26px 30px; border-left: 3px solid var(--teal-bright); background: var(--ink-2); color: var(--muted-on-dark); font-size: 16px; max-width: 760px; }
+    .proof strong { color: #fff; }
+
+    /* deltas */
+    .deltas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border-dark); border: 1px solid var(--border-dark); margin-top: 64px; }
     @media (max-width: 680px) { .deltas { grid-template-columns: 1fr; } }
-    .delta { background: var(--ink-2); padding: 44px 36px; }
-    .delta .who { font-size: 12px; text-transform: uppercase; letter-spacing: 2.5px; color: var(--muted-on-dark); margin-bottom: 10px; }
-    .delta .val { font-family: var(--head); font-weight: 800; font-size: clamp(48px, 5vw, 68px); color: #fff; line-height: 1; }
+    .delta { background: var(--ink-2); padding: 40px 34px; }
+    .delta .who { font-family: var(--head); font-size: 12px; text-transform: uppercase; letter-spacing: 2.5px; color: var(--muted-on-dark); margin-bottom: 10px; }
+    .delta .val { font-family: var(--head); font-weight: 700; font-size: clamp(46px, 5vw, 64px); color: #fff; line-height: 1; }
     .delta.teal .val { color: var(--teal-bright); }
     .delta.coral .val { color: var(--coral); }
     .delta .lbl { color: var(--muted-on-dark); font-size: 14px; margin-top: 10px; }
 
-    /* ── photo cards row ── */
-    .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 0; }
+    /* vector vivo */
+    .vector-split { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+    @media (max-width: 820px) { .vector-split { grid-template-columns: 1fr; } }
+    .vector-card { background: var(--ink-2); border: 1px solid var(--border-dark); border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 28px; }
+    .vector-card canvas { display: block; }
+    .vector-split h2 { font-size: clamp(28px, 3.8vw, 44px); color: #fff; margin-bottom: 18px; }
+    .vector-split p { color: var(--muted-on-dark); font-size: 16.5px; margin-bottom: 14px; }
+
+    /* photo cards */
+    .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
     @media (max-width: 780px) { .photos { grid-template-columns: 1fr; } }
-    .photo { position: relative; }
     .photo .im { aspect-ratio: 4 / 5; overflow: hidden; border-radius: 4px; }
-    .photo .im img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.7) contrast(1.06) brightness(.92); transition: transform .5s; }
+    .photo .im img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.72) contrast(1.05) brightness(.92); transition: transform .5s; }
     .photo:hover .im img { transform: scale(1.04); }
-    .photo h3 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 2.5px; color: #fff; margin: 20px 0 8px; }
+    .photo h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 2.5px; color: #fff; margin: 20px 0 8px; }
     .photo p { color: var(--muted-on-dark); font-size: 14.5px; }
 
-    /* ── light product sections ── */
+    /* light product */
     .light { background: var(--cream); color: var(--text); }
     .light h2 { color: var(--text); }
-    .light .sub { color: var(--muted); }
     .split { display: grid; grid-template-columns: 5fr 7fr; gap: 72px; align-items: center; }
     .split.rev { grid-template-columns: 7fr 5fr; }
     @media (max-width: 880px) { .split, .split.rev { grid-template-columns: 1fr; gap: 40px; } .split.rev .txt { order: -1; } }
-    .split h2 { font-size: clamp(26px, 3.4vw, 40px); margin-bottom: 20px; }
+    .split h2 { font-size: clamp(26px, 3.4vw, 38px); margin-bottom: 20px; }
     .split ul { list-style: none; padding: 0; margin-top: 8px; }
-    .split li { padding: 14px 0 14px 0; color: var(--muted); font-size: 15.5px; border-top: 1px solid var(--border-light); }
-    .split li strong { color: var(--text); font-weight: 700; display: block; font-family: var(--head); font-size: 15px; margin-bottom: 2px; }
+    .split li { padding: 14px 0; color: var(--muted); font-size: 15.5px; border-top: 1px solid var(--border-light); }
+    .split li strong { color: var(--text); font-weight: 600; display: block; font-family: var(--head); font-size: 15px; }
     .shot { border-radius: 6px; overflow: hidden; box-shadow: 0 30px 80px rgba(31,42,51,.18); border: 1px solid var(--border-light); }
     .gap-top { margin-top: 96px; }
 
-    /* ── quote ── */
+    /* quote */
     .quote { text-align: center; }
-    .quote blockquote { font-family: var(--head); font-weight: 300; font-size: clamp(26px, 4vw, 44px); line-height: 1.3; color: #fff; max-width: 880px; margin: 0 auto; letter-spacing: -.3px; }
-    .quote blockquote strong { font-weight: 800; color: var(--teal-bright); }
-    .quote .who { margin-top: 28px; color: var(--muted-on-dark); font-size: 14px; text-transform: uppercase; letter-spacing: 2.5px; }
+    .quote blockquote { font-family: var(--head); font-weight: 400; font-size: clamp(26px, 4vw, 44px); line-height: 1.28; color: #fff; max-width: 860px; margin: 0 auto; }
+    .quote blockquote strong { font-weight: 700; color: var(--teal-bright); }
+    .quote .who { margin-top: 28px; color: var(--muted-on-dark); font-size: 13px; text-transform: uppercase; letter-spacing: 3px; font-family: var(--head); }
 
-    /* ── steps ── */
-    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border-light); border: 1px solid var(--border-light); margin-top: 64px; }
+    /* steps */
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border-light); border: 1px solid var(--border-light); margin-top: 56px; }
     @media (max-width: 780px) { .steps { grid-template-columns: 1fr; } }
-    .step { background: #fff; padding: 44px 36px; }
-    .step .num { font-family: var(--head); font-weight: 800; font-size: 15px; color: var(--coral); margin-bottom: 16px; }
+    .step { background: #fff; padding: 42px 34px; }
+    .step .num { font-family: var(--head); font-weight: 700; font-size: 14px; color: var(--coral); margin-bottom: 16px; letter-spacing: 2px; }
     .step h3 { font-size: 19px; margin-bottom: 10px; }
     .step p { color: var(--muted); font-size: 15px; }
 
-    /* ── final CTA ── */
+    /* final */
     .final { position: relative; overflow: hidden; padding: 150px 0; }
     .final .bg { position: absolute; inset: 0; }
-    .final .bg img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; filter: saturate(.6) brightness(.8); }
-    .final .bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(15,21,25,.82), rgba(15,21,25,.88)); }
+    .final .bg img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 55%; }
+    .final .bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(15,21,25,.85), rgba(15,21,25,.9)); }
     .final .inner { position: relative; text-align: center; }
     .final h2 { font-size: clamp(30px, 4.6vw, 54px); color: #fff; max-width: 720px; margin: 0 auto 22px; }
     .final p { color: var(--muted-on-dark); max-width: 560px; margin: 0 auto 40px; font-size: 17px; }
 
-    /* ── footer ── */
-    footer { background: #0a3f45; padding: 0; }
-    .foot-grid { display: grid; grid-template-columns: 1fr 1fr; min-height: 260px; }
+    /* footer */
+    footer { background: #0a3f45; }
+    .foot-grid { display: grid; grid-template-columns: 1fr 1fr; min-height: 240px; }
     @media (max-width: 680px) { .foot-grid { grid-template-columns: 1fr; } }
     .foot-photo { overflow: hidden; }
     .foot-photo img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.7) brightness(.85); }
     .foot-brand { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 48px 28px; }
-    .foot-brand img { width: 64px; height: 64px; border-radius: 14px; }
-    .foot-brand .name { font-family: var(--head); font-weight: 800; font-size: 24px; color: #fff; letter-spacing: 4px; text-transform: uppercase; line-height: 1.35; }
+    .foot-brand img { width: 62px; height: 62px; border-radius: 14px; }
+    .foot-brand .name { font-family: var(--head); font-weight: 700; font-size: 23px; color: #fff; letter-spacing: 5px; text-transform: uppercase; line-height: 1.35; }
     .foot-bar { border-top: 1px solid rgba(255,255,255,.12); padding: 22px 0; }
     .foot-bar .wrap { display: flex; gap: 16px; color: rgba(255,255,255,.55); font-size: 13.5px; }
     .foot-bar .grow { flex: 1; }
@@ -165,76 +176,102 @@
 </header>
 
 <section class="hero">
-  <div class="bg"><img src="assets/photo-hero.jpg" alt="Entrenamiento de surf en seco"></div>
+  <div class="bg"><img src="assets/hero-surf.jpg" alt="Surfista caminando con su tabla al atardecer"></div>
   <div class="wrap inner">
-    <div class="kicker">Biomecánica para surf coaches</div>
-    <h1>Tu ojo de coach,<br>ahora <em>con números</em>.</h1>
-    <p>KineSurf mide la técnica de tus estudiantes directamente del video: ángulos articulares
-    reales, distribución de peso y comparación lado a lado contra tu propia técnica.</p>
+    <div class="kicker">Análisis de técnica para surf coaches</div>
+    <h1>Ve lo que el ojo<br><em>no alcanza</em>.</h1>
+    <p>Compresión, estabilidad, rotación de hombros, alineación y distribución de peso de tus
+    estudiantes — etapa por etapa, sobre su propio video, comparados contra tu técnica.</p>
     <div class="ctas">
       <a class="btn btn-solid" href="#contacto">Agenda una demo</a>
-      <a class="btn btn-line" href="#metodo">Ver el método</a>
+      <a class="btn btn-line" href="#secuencia">Ver un análisis real</a>
     </div>
   </div>
 </section>
 
 <div class="strip">
-  <div class="wrap" style="padding:0">
-    <div class="cell"><div class="n">33</div><div class="l">puntos corporales por frame</div></div>
-    <div class="cell"><div class="n">2D + 3D</div><div class="l">ángulos en grados, reproducibles</div></div>
-    <div class="cell"><div class="n">Δ</div><div class="l">coach vs. alumno por articulación</div></div>
+  <div class="wrap">
+    <div class="cell"><div class="n">Etapa por etapa</div><div class="l">el movimiento completo en poses clave</div></div>
+    <div class="cell"><div class="n">Peso y balance</div><div class="l">dónde está el cuerpo sobre la tabla</div></div>
+    <div class="cell"><div class="n">Coach vs. alumno</div><div class="l">tu técnica como referencia directa</div></div>
     <div class="cell"><div class="n">En seco</div><div class="l">repetible, sin depender del mar</div></div>
   </div>
 </div>
 
-<section class="statement" id="metodo">
+<section class="seq" id="secuencia">
   <div class="wrap">
-    <div class="kicker">Medición, no opinión</div>
-    <h2>«Flexiona más las piernas» no es un dato.</h2>
-    <p class="sub">Las apps de "AI surf coach" generan texto que suena bien. KineSurf mide el cuerpo
-    de tu alumno frame a frame y te da el número — el mismo número, cada vez que lo midas.</p>
+    <div class="kicker">Un análisis real de KineSurf</div>
+    <h2>La secuencia completa, profe y alumno.</h2>
+    <p class="sub">Cadera, hombros, mirada de la cabeza, inclinación de los cuerpos y distribución
+    del peso — <strong>en cada etapa del movimiento</strong>, con el esqueleto al lado del video.
+    Lo poco perceptible, visible y comentado sobre el frame.</p>
+  </div>
+  <div class="wrap" style="max-width:1400px">
+    <div class="seq-board"><img src="assets/demo-secuencia-full.png" alt="Secuencia de carving: esqueleto y video del coach comparados con los del alumno, etapa por etapa"></div>
+    <div class="seq-tags">
+      <span class="tag">Posición de cadera</span><span class="tag">Hombros por etapa</span>
+      <span class="tag">Mirada</span><span class="tag">Distribución de peso</span>
+      <span class="tag">Inclinación del cuerpo</span><span class="tag">Anotaciones del coach</span>
+    </div>
+  </div>
+</section>
+
+<section class="looks" style="padding-top:40px">
+  <div class="wrap">
+    <div class="kicker">Lo que tú miras, KineSurf lo muestra</div>
+    <h2>El checklist de todo coach, sobre el video real.</h2>
+    <p class="sub">No inventamos métricas nuevas: hacemos visibles las que ya usas.</p>
+    <div class="look-grid">
+      <div class="look"><h3>Compresión</h3><p>Cuánto se pliega el cuerpo — rodilla y cadera juntas — en el bottom y en cada fase del giro.</p></div>
+      <div class="look"><h3>Estabilidad</h3><p>El peso sobre la base de apoyo y el apilado del cuerpo: quién está sobre la tabla y quién se cae de ella.</p></div>
+      <div class="look"><h3>Rotación de hombros</h3><p>La separación hombros-caderas en el giro: cuánta rotación genera de verdad y cuándo la suelta.</p></div>
+      <div class="look"><h3>Posición y alineación</h3><p>Líneas de hombros y cadera e inclinación de los cuerpos, comparadas etapa por etapa contra la referencia.</p></div>
+      <div class="look"><h3>Flexibilidad de tobillos y cadera</h3><p>Los rangos que el alumno alcanza dentro del gesto — y dónde se queda corto respecto a ti.</p></div>
+      <div class="look"><h3>Fluidez</h3><p>Cómo conecta una pose clave con la siguiente: la secuencia delata los saltos y las pausas que el video a velocidad real esconde.</p></div>
+      <div class="look"><h3>Mirada</h3><p>Hacia dónde va la cabeza en cada etapa — la corrección más barata y la que más cuesta ver en vivo.</p></div>
+    </div>
+    <div class="proof">Debajo de cada lectura hay un <strong>número reproducible</strong> — grados y
+    porcentajes medidos sobre 33 puntos del cuerpo, en 2D y 3D. No es una opinión generada:
+    si lo mides mañana, da lo mismo.</div>
 
     <div class="deltas">
-      <div class="delta teal"><div class="who">Tu rodilla</div><div class="val">107°</div><div class="lbl">la referencia que le muestras</div></div>
+      <div class="delta teal"><div class="who">Tu compresión</div><div class="val">107°</div><div class="lbl">la referencia que le muestras</div></div>
       <div class="delta coral"><div class="who">La de tu alumno</div><div class="val">143°</div><div class="lbl">medida en su último video</div></div>
-      <div class="delta"><div class="who">Δ a corregir</div><div class="val">+36°</div><div class="lbl">el objetivo de la semana, en grados</div></div>
-    </div>
-
-    <div class="cols">
-      <div class="col">
-        <h3>Indicadores técnicos</h3>
-        <p>Flexión de rodilla, cadera y codo en 2D y 3D. Inclinación de hombros y caderas.
-        Rotación hombros-caderas (X-factor) y apilado del cuerpo sobre la base. Eliges qué
-        métricas ver según la maniobra que estés trabajando.</p>
-      </div>
-      <div class="col">
-        <h3>Lectura de peso</h3>
-        <p>Centro de masa segmentario proyectado sobre los pies: cuánto peso lleva adelante y
-        atrás, y su balance lateral. La lectura que todo coach hace a ojo — ahora en porcentaje,
-        frame a frame.</p>
-      </div>
+      <div class="delta"><div class="who">Δ a corregir</div><div class="val">+36°</div><div class="lbl">el objetivo de la semana</div></div>
     </div>
   </div>
 </section>
 
 <section style="padding-top:0">
-  <div class="wrap">
-    <div class="photos">
-      <div class="photo">
-        <div class="im"><img src="assets/photo-popup.jpg" alt="Pop-up en tierra"></div>
-        <h3>Entrenamiento en seco</h3>
-        <p>Pop-up, carving, cutback: el gesto se entrena en tierra, repetible y filmable, sin esperar condiciones.</p>
-      </div>
-      <div class="photo">
-        <div class="im"><img src="assets/photo-stance.jpg" alt="Stance medido"></div>
-        <h3>Cada pose, medida</h3>
-        <p>KineSurf extrae la pose frame a frame y calcula las métricas. Tú corriges cualquier punto que el video oculte.</p>
-      </div>
-      <div class="photo">
-        <div class="im"><img src="assets/photo-profe.jpg" alt="Referencia del coach"></div>
-        <h3>Tu técnica como referencia</h3>
-        <p>Tus propios videos son el patrón: cada alumno se compara contra tu librería de referencias por maniobra.</p>
-      </div>
+  <div class="wrap vector-split">
+    <div class="vector-card"><canvas id="vectorCanvas" width="300" height="520" aria-label="Esqueleto del carving en movimiento"></canvas></div>
+    <div>
+      <div class="kicker">El movimiento, hecho vector</div>
+      <h2>Quita el fondo.<br>Queda la técnica.</h2>
+      <p>Esto es un carve real convertido en vectores de movimiento — el mismo que ves arriba
+      en la secuencia. Sin fondo, sin ropa, sin distracción: solo la mecánica del cuerpo.</p>
+      <p>Así se compara al alumno contra el coach: cuerpo contra cuerpo, etapa contra etapa,
+      también en 3D para girarlo y verlo desde cualquier ángulo.</p>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap photos">
+    <div class="photo">
+      <div class="im"><img src="assets/photo-popup.jpg" alt="Pop-up en tierra"></div>
+      <h3>Entrenamiento en seco</h3>
+      <p>Pop-up, carving, cutback: el gesto se entrena en tierra, repetible y filmable, sin esperar condiciones.</p>
+    </div>
+    <div class="photo">
+      <div class="im"><img src="assets/photo-stance.jpg" alt="Stance medido"></div>
+      <h3>Cada pose, medida</h3>
+      <p>KineSurf extrae la pose frame a frame. Tú corriges cualquier punto que el video oculte.</p>
+    </div>
+    <div class="photo">
+      <div class="im"><img src="assets/photo-profe.jpg" alt="Referencia del coach"></div>
+      <h3>Tu técnica como referencia</h3>
+      <p>Tus propios videos son el patrón: cada alumno se compara contra tu librería de referencias por maniobra.</p>
     </div>
   </div>
 </section>
@@ -247,27 +284,15 @@
         <h2>Tu técnica y la de tu alumno, lado a lado.</h2>
         <ul>
           <li><strong>Dos videos sincronizables</strong>frame a frame, con recortes por maniobra.</li>
-          <li><strong>Métricas en vivo</strong>en ambos paneles mientras reproduces.</li>
-          <li><strong>Barra de Δ</strong>la diferencia exacta por articulación, coloreada al pasar el umbral.</li>
+          <li><strong>Lecturas en vivo</strong>compresión, alineación y peso en ambos paneles mientras reproduces.</li>
+          <li><strong>La diferencia exacta</strong>por articulación, coloreada cuando se pasa del umbral.</li>
         </ul>
       </div>
       <div class="shot"><img src="assets/demo-compare.png" alt="Vista Comparar de KineSurf"></div>
     </div>
 
     <div class="split rev gap-top">
-      <div class="shot"><img src="assets/demo-sequence.png" alt="Storyboard de secuencia coach vs. alumno"></div>
-      <div class="txt">
-        <div class="kicker">Secuencia</div>
-        <h2>El movimiento completo, pose por pose.</h2>
-        <ul>
-          <li><strong>Storyboard de poses clave</strong>descompón el pop-up o el carve en sus pasos.</li>
-          <li><strong>Coach vs. alumno alineados</strong>con métricas y Δ en cada paso.</li>
-          <li><strong>Infografía exportable</strong>comenta, dibuja por escena y envíasela a tu alumno en PNG.</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="split gap-top">
+      <div class="shot"><img src="assets/demo-dashboard.png" alt="Dashboard de estudiantes de KineSurf"></div>
       <div class="txt">
         <div class="kicker">Dashboard</div>
         <h2>Cada estudiante, su espacio.</h2>
@@ -277,15 +302,13 @@
           <li><strong>Timeline de progreso</strong>por fecha de sesión, con acceso directo a cada análisis.</li>
         </ul>
       </div>
-      <div class="shot"><img src="assets/demo-dashboard.png" alt="Dashboard de estudiantes de KineSurf"></div>
     </div>
   </div>
 </section>
 
 <section class="quote">
   <div class="wrap">
-    <blockquote>No le digas a tu alumno que se agache más.<br>
-    <strong>Muéstrale los grados que le faltan.</strong></blockquote>
+    <blockquote>No le digas que le falta compresión.<br><strong>Muéstrasela.</strong></blockquote>
     <div class="who">El método KineSurf</div>
   </div>
 </section>
@@ -293,17 +316,17 @@
 <section class="light" id="como">
   <div class="wrap">
     <div class="kicker">Cómo trabajas con KineSurf</div>
-    <h2 style="font-size:clamp(26px,3.4vw,40px)">Tres pasos, cero fricción.</h2>
+    <h2 style="font-size:clamp(26px,3.4vw,38px)">Tres pasos, cero fricción.</h2>
     <div class="steps">
       <div class="step"><div class="num">01</div><h3>Graba en seco</h3><p>Un celular en trípode, plano lateral. El alumno entrena la maniobra en tierra — repetible, sin esperar olas.</p></div>
-      <div class="step"><div class="num">02</div><h3>KineSurf mide</h3><p>Extrae la pose frame a frame y calcula las métricas. Tú corriges cualquier punto que el video oculte.</p></div>
-      <div class="step"><div class="num">03</div><h3>Corrige con datos</h3><p>Muestras el Δ contra tu técnica, marcas el objetivo en grados y le envías la infografía al alumno.</p></div>
+      <div class="step"><div class="num">02</div><h3>KineSurf lo hace visible</h3><p>Extrae la pose frame a frame y arma la secuencia de poses clave junto a tu referencia.</p></div>
+      <div class="step"><div class="num">03</div><h3>Corrige con evidencia</h3><p>Marcas la etapa exacta donde se rompe la técnica y le envías la infografía comentada al alumno.</p></div>
     </div>
   </div>
 </section>
 
 <section class="final" id="contacto">
-  <div class="bg"><img src="assets/photo-hero.jpg" alt=""></div>
+  <div class="bg"><img src="assets/hero-surf.jpg" alt=""></div>
   <div class="wrap inner">
     <div class="kicker">Sin planes, sin autoservicio</div>
     <h2>KineSurf se implementa contigo, uno a uno.</h2>
@@ -315,7 +338,7 @@
 
 <footer>
   <div class="foot-grid">
-    <div class="foot-photo"><img src="assets/photo-stance.jpg" alt=""></div>
+    <div class="foot-photo"><img src="assets/photo-profe.jpg" alt=""></div>
     <div class="foot-brand">
       <img src="assets/logo.svg" alt="">
       <div class="name">Kine<br>Surf</div>
@@ -325,10 +348,52 @@
     <div class="wrap">
       <span>© 2026 KineSurf</span>
       <span class="grow"></span>
-      <span>Biomecánica real para surf coaches</span>
+      <span>Análisis de técnica para surf coaches</span>
     </div>
   </div>
 </footer>
+
+<script>
+// Esqueleto vivo: reproduce en loop los vectores reales del carve del coach.
+(async () => {
+  const cv = document.getElementById("vectorCanvas");
+  const ctx = cv.getContext("2d");
+  let data;
+  try {
+    data = await (await fetch("assets/vector-demo.json")).json();
+  } catch (_) { cv.parentElement.style.display = "none"; return; }
+  const BONES = [[11,13],[13,15],[12,14],[14,16],[11,12],[23,24],[11,23],[12,24],
+                 [23,25],[25,27],[24,26],[26,28],[27,31],[28,32]];
+  const W = cv.width, H = cv.height, MS = 1000 / (data.fps || 15);
+  let fi = 0, last = 0;
+  function draw(pts) {
+    ctx.clearRect(0, 0, W, H);
+    const P = (i) => pts[i] ? [pts[i][0] * W, pts[i][1] * H] : null;
+    ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.strokeStyle = "#35c3d1";
+    for (const [a, b] of BONES) {
+      const pa = P(a), pb = P(b);
+      if (!pa || !pb) continue;
+      ctx.beginPath(); ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]); ctx.stroke();
+    }
+    ctx.fillStyle = "#faf9f6";
+    for (const i in pts) {
+      const p = P(+i);
+      ctx.beginPath(); ctx.arc(p[0], p[1], 4, 0, 7); ctx.fill();
+    }
+    // cabeza: punto medio de orejas (7,8)
+    const e1 = P(7), e2 = P(8);
+    if (e1 && e2) {
+      ctx.beginPath(); ctx.arc((e1[0]+e2[0])/2, (e1[1]+e2[1])/2, 13, 0, 7);
+      ctx.strokeStyle = "#faf9f6"; ctx.lineWidth = 2.5; ctx.stroke();
+    }
+  }
+  function tick(t) {
+    if (t - last >= MS) { draw(data.frames[fi]); fi = (fi + 1) % data.frames.length; last = t; }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
 
 </body>
 </html>
